@@ -8,3 +8,20 @@
  */
 
 #pragma once
+
+#include <string>
+
+struct EthernetDevice {
+
+    std::string name;
+    std::string description;
+
+};
+
+class DAQCap {
+
+public:
+
+private:
+
+};
