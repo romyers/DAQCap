@@ -6,6 +6,11 @@ project(DAQCap
 )
 include(FetchContent)
 
+# TODO: We need to do setcap stuff. See:
+# https://stackoverflow.com/questions/41254902/cmake-run-script-for-install-target
+# https://stackoverflow.com/questions/31540189/is-it-possible-to-execute-a-command-as-a-super-user-while-using-cmake
+# https://stackoverflow.com/questions/72012474/integrate-granting-of-capabilities-into-the-build-process
+
 # We only want to do this if we are the top-level project
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME) 
 
@@ -24,10 +29,15 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
 endif()
 
-# TODO: Do different things if we're on macOS or Windows
+# TODO: Do different things if we're on macOS or Windows?
+
 # Point CMAKE at the project directory for modules
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/modules/")
+
+# Find libpcap
 find_package(PCAP REQUIRED)
+
+# If libpcap is not found, fetch it from GitHub
 if(NOT PCAP_FOUND)
 
     message(STATUS "libpcap not found, fetching from GitHub")
@@ -44,7 +54,7 @@ endif()
 # Build the library
 add_library(DAQCap include/DAQCap.h src/DAQCap.cpp)
 target_include_directories(DAQCap PUBLIC include)
-target_link_libraries(DAQCap PUBLIC libpcap.a)
+target_link_libraries(DAQCap PUBLIC ${PCAP_LIBRARY})
 
 # Build examples
 OPTION(BUILD_EXAMPLES "Build the Example Program" OFF)
@@ -56,6 +66,7 @@ if(BUILD_EXAMPLES)
 endif()
 
 # Build the test suite
+# TODO: Only do this if we're the top level project?
 OPTION(BUILD_TESTING "Build the Test Suite" OFF)
 if(BUILD_TESTING)
 
@@ -63,6 +74,7 @@ if(BUILD_TESTING)
 
     include(CTest)
 
+    # Get Catch2
     FetchContent_Declare(
         Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
@@ -70,10 +82,12 @@ if(BUILD_TESTING)
     )
     FetchContent_MakeAvailable(Catch2)
 
+    # Build the test executables
     add_executable(testDAQCap src/DAQCap.test.cpp)
     target_link_libraries(testDAQCap PRIVATE Catch2::Catch2WithMain DAQCap)
     add_test(NAME testDAQCap COMMAND testDAQCap)
 
+    # Register the tests
     list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
     include(Catch)
     catch_discover_tests(testDAQCap)
