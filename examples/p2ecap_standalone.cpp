@@ -42,11 +42,13 @@ int main(int argc, char **argv) {
 
     try {
 
+        // TODO: This needs to be a loop
+
         DAQCap::SessionHandler handler(device);
 
         DAQCap::DataBlob blob = handler.fetchPackets();
 
-        std::cout << blob.bufferedPackets << std::endl;
+        std::cout << blob.countPackets() << std::endl;
 
     } catch(const std::exception &e) {
 
@@ -66,7 +68,7 @@ int main(int argc, char **argv) {
 
 DAQCap::Device runDeviceSelection() {
 
-    std::vector<DAQCap::Device> devices = DAQCap::getDevices();
+    std::vector<DAQCap::Device> devices = DAQCap::getDeviceList();
 
     std::cout << std::endl << "Available network devices:" << std::endl;
     for(int i = 0; i < devices.size(); ++i) {
@@ -161,7 +163,9 @@ void createIfMissing(const std::string &directoryName) {
 
 		createDirectory(directoryName);
 
-		std::cout << "Created output directory: " << directoryName << std::endl;
+		std::cout << "Created output directory: " 
+                  << directoryName 
+                  << std::endl;
 
 	}
 

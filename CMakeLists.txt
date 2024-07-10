@@ -52,9 +52,14 @@ if(NOT PCAP_FOUND)
 endif()
 
 # Build the library
-add_library(DAQCap include/DAQCap.h src/DAQCap.cpp)
+add_library(
+    DAQCap 
+    src/DAQCap.cpp 
+    src/NetworkInterface_PCap.cpp
+    src/Packet.cpp
+)
 target_include_directories(DAQCap PUBLIC include)
-target_link_libraries(DAQCap PUBLIC ${PCAP_LIBRARY})
+target_link_libraries(DAQCap PRIVATE ${PCAP_LIBRARY})
 
 # Build examples
 OPTION(BUILD_EXAMPLES "Build the Example Program" OFF)
@@ -81,15 +86,30 @@ if(BUILD_TESTING)
         GIT_TAG v3.6.0
     )
     FetchContent_MakeAvailable(Catch2)
-
-    # Build the test executables
-    add_executable(testDAQCap src/DAQCap.test.cpp)
-    target_link_libraries(testDAQCap PRIVATE Catch2::Catch2WithMain DAQCap)
-    add_test(NAME testDAQCap COMMAND testDAQCap)
-
-    # Register the tests
+    
     list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
     include(Catch)
+
+    # Build the mock version of the DAQCap library
+    add_library(
+        DAQCapMock 
+        src/DAQCap.cpp 
+        src/Packet.cpp
+        tests/NetworkInterface.mock.cpp
+    )
+    target_include_directories(DAQCapMock PUBLIC include)
+    target_include_directories(DAQCapMock PRIVATE src)
+    
+    # Build the test executables
+    add_executable(testDAQCap tests/DAQCap.test.cpp)
+    target_link_libraries(testDAQCap PRIVATE Catch2::Catch2WithMain DAQCapMock)
+    add_test(NAME testDAQCap COMMAND testDAQCap)
     catch_discover_tests(testDAQCap)
+
+    add_executable(testPacket tests/Packet.test.cpp src/Packet.cpp)
+    target_link_libraries(testPacket PRIVATE Catch2::Catch2WithMain)
+    target_include_directories(testPacket PRIVATE src)
+    add_test(NAME testPacket COMMAND testPacket)
+    catch_discover_tests(testPacket)
 
 endif()
