@@ -3,6 +3,8 @@ set(DOXYGEN_PROJECT_NAME "DAQCap")
 set(DOXYGEN_BUILTIN_STL_SUPPORT YES)
 set(DOXYGEN_EXCLUDE_PATTERNS "*.cpp")
 
+# TODO: Add an option for building internal documentation
+
 doxygen_add_docs(
     docs 
     ${CMAKE_SOURCE_DIR}/include

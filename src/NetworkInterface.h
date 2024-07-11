@@ -1,7 +1,7 @@
 /**
  * @file NetworkInterface.h
  *
- * @brief Provides a C++-style interface for managing network devices.
+ * @brief Provides a flexible interface for managing network devices.
  *
  * @author Robert Myers
  * Contact: romyers@umich.edu
@@ -36,18 +36,9 @@ namespace DAQCap {
     public:
 
         /**
-         * @brief Constructs a listener object for the given device.
-         * 
-         * @throws std::runtime_error if the device does not exist or could not
-         * be initialized.
-         */
-        Listener(const std::string &deviceName);
-        ~Listener();
-
-        /**
          * @brief Interrupts calls to listen().
          */
-        void interrupt();
+        virtual void interrupt() = 0;
 
         /**
          * @brief Waits for packets to arrive on the network device associated
@@ -59,21 +50,16 @@ namespace DAQCap {
          * is -1, all packets in the current buffer are read. packetsToRead 
          * should not be zero or less than -1.
          */
-        std::vector<Packet> listen(int packetsToRead);
+        virtual std::vector<Packet> listen(int packetsToRead) = 0;
 
-    private:
-
-        /*
-         * NOTE: We go for the PIMPL idiom here to allow this header to serve
-         *       as a common interface for multiple implementations. In
-         *       particular, this will allow us to substitute the PCap library
-         *       with a different library or with a mock implementation without
-         *       disturbing the interface or needing to recompile code that 
-         *       relies on it.
+        /**
+         * @brief Constructs a listener object for the given device.
+         * 
+         * @throws std::runtime_error if the device does not exist or could not
+         * be initialized.
          */
-        class Listener_impl;
-        Listener_impl *impl = nullptr;
+        static Listener *create(const std::string &deviceName);
 
     };
 
-}
+} // namespace DAQCap

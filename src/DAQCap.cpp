@@ -26,13 +26,14 @@ class SessionHandler::SessionHandler_impl {
 public:
 
     SessionHandler_impl(const Device &device);
+    ~SessionHandler_impl();
 
     void interrupt();
     DataBlob fetchPackets(int timeout, int packetsToRead);
 
 private:
 
-    Listener listener;
+    Listener *listener;
 
     DAQThread::Worker<std::packaged_task<std::vector<Packet>()>> workerThread;
 
@@ -44,13 +45,20 @@ private:
 
 SessionHandler::SessionHandler_impl::SessionHandler_impl(
     const Device &device
-) : listener(device.name) {
+) : listener(Listener::create(device.name)) {
+
+}
+
+SessionHandler::SessionHandler_impl::~SessionHandler_impl() {
+
+    if(listener) delete listener;
+    listener = nullptr;
 
 }
 
 void SessionHandler::SessionHandler_impl::interrupt() {
 
-    listener.interrupt();
+    listener->interrupt();
 
 }
 
@@ -73,7 +81,7 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
     // Create a packaged_task out of the listen() call and get a future from it
     std::packaged_task<std::vector<Packet>()> task([this, packetsToRead]() {
 
-        return listener.listen(packetsToRead);
+        return listener->listen(packetsToRead);
 
     });
     std::future<std::vector<Packet>> future = task.get_future();

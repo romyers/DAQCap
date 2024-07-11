@@ -32,7 +32,7 @@ endif()
 # TODO: Do different things if we're on macOS or Windows?
 
 # Point CMAKE at the project directory for modules
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/modules/")
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules/")
 
 # Find libpcap
 find_package(PCAP REQUIRED)

@@ -30,4 +30,4 @@ namespace DAQCap {
 
     };
 
-}
+} // namespace DAQCap

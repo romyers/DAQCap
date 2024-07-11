@@ -85,14 +85,6 @@ namespace DAQCap {
         // TODO: Add functionality for:
         //         -- checking packet numbers
         //         -- removing idle words
-        //         -- timing out fetchPackets() calls
-        //              -- For this we'll use a thread that calls interrupt
-        //                 after a certain amount of time. But the thread needs
-        //                 to be killed if fetchPackets returns. We don't want
-        //                 them proliferating.
-        //         -- Maybe include functionality for writing to a file. It's
-        //            a bit shallow though -- you just need to call write() on
-        //            an fstream.
         // TODO: Testing. Part of this refactoring effort is to establish
         //       a unit test suite.
         // TODO: Go through the interface and make sure it's good.

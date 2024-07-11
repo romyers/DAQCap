@@ -24,15 +24,15 @@ void listen_callback(
 	const u_char *packet_data
 );
 
-class Listener::Listener_impl {
+class PCap_Listener: public Listener {
 
 public:
 
-    Listener_impl(const std::string &deviceName);
-    ~Listener_impl();
+    PCap_Listener(const std::string &deviceName);
+    ~PCap_Listener();
 
-    Listener_impl(const Listener_impl &other)            = delete;
-    Listener_impl &operator=(const Listener_impl &other) = delete;
+    PCap_Listener(const PCap_Listener &other)            = delete;
+    PCap_Listener &operator=(const PCap_Listener &other) = delete;
 
     void interrupt();
     std::vector<Packet> listen(int packetsToRead);
@@ -43,7 +43,7 @@ private:
 
 };
 
-Listener::Listener_impl::Listener_impl(const std::string &deviceName) {
+PCap_Listener::PCap_Listener(const std::string &deviceName) {
 
 	char errorBuffer[PCAP_ERRBUF_SIZE];
 
@@ -97,20 +97,20 @@ Listener::Listener_impl::Listener_impl(const std::string &deviceName) {
 
 }
 
-Listener::Listener_impl::~Listener_impl() {
+PCap_Listener::~PCap_Listener() {
 
 	if(handler) pcap_close(handler);
 	handler = nullptr;
 
 }
 
-void Listener::Listener_impl::interrupt() {
+void PCap_Listener::interrupt() {
 
     if(handler) pcap_breakloop(handler);
 
 }
 
-std::vector<Packet> Listener::Listener_impl::listen(int packetsToRead) {
+std::vector<Packet> PCap_Listener::listen(int packetsToRead) {
 
     g_packetBuffer.clear();
     int ret = pcap_dispatch(
@@ -204,24 +204,8 @@ void listen_callback(
 
 }
 
-Listener::Listener(const std::string &deviceName) 
-    : impl(new Listener_impl(deviceName)) {}
+Listener *Listener::create(const std::string &deviceName) {
 
-Listener::~Listener() {
-    
-    if(impl) delete impl;
-    impl = nullptr;
-
-}
-
-void Listener::interrupt() { 
-
-    impl->interrupt(); 
-
-}
-
-std::vector<Packet> Listener::listen(int packetsToRead) { 
-
-    return impl->listen(packetsToRead); 
+    return new PCap_Listener(deviceName);
 
 }

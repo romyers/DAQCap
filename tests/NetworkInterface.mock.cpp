@@ -5,60 +5,42 @@
 
 using namespace DAQCap;
 
-class Listener::Listener_impl {
+class MockListener: public Listener {
+
 
 public:
 
-    Listener_impl(const std::string &deviceName);
+    MockListener(const std::string &deviceName);
+    ~MockListener();
+
+    MockListener(const MockListener &other)            = delete;
+    MockListener &operator=(const MockListener &other) = delete;
 
     void interrupt();
-
     std::vector<Packet> listen(int packetsToRead);
-
-private:
-
-    bool interrupted = false;
 
 };
 
-Listener::Listener_impl::Listener_impl(const std::string &deviceName) {}
-
-void Listener::Listener_impl::interrupt() {
-
-    // TODO: Some way to test that this happened
-
-    interrupted = true;
+MockListener::MockListener(const std::string &deviceName) {
 
 }
 
-std::vector<Packet> Listener::Listener_impl::listen(int packetsToRead) { 
-
-    std::vector<Packet> packets;
-
-    // TODO: Stuff a vector of packets with some explicit data
-
-    return packets; 
+MockListener::~MockListener() {
 
 }
 
-Listener::Listener(const std::string &deviceName) 
-    : impl(new Listener_impl(deviceName)) {}
-
-Listener::~Listener() {
-    
-    if(impl) delete impl;
-    impl = nullptr;
+void MockListener::interrupt() {
 
 }
 
-void Listener::interrupt() { 
+std::vector<Packet> MockListener::listen(int packetsToRead) {
 
-    impl->interrupt(); 
+    return std::vector<Packet>();
 
 }
 
-std::vector<Packet> Listener::listen(int packetsToRead) { 
+Listener *Listener::create(const std::string &deviceName) {
 
-    return impl->listen(packetsToRead); 
+    return new MockListener(deviceName);
 
 }
