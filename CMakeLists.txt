@@ -4,12 +4,19 @@ project(DAQCap
     DESCRIPTION "Data capture library for the miniDAQ system"
     LANGUAGES C CXX
 )
+
+OPTION(BUILD_EXAMPLES "Build the Example Program" OFF)
+OPTION(BUILD_TESTING "Build the Test Suite" OFF)
+
 include(FetchContent)
 
 # TODO: We need to do setcap stuff. See:
 # https://stackoverflow.com/questions/41254902/cmake-run-script-for-install-target
 # https://stackoverflow.com/questions/31540189/is-it-possible-to-execute-a-command-as-a-super-user-while-using-cmake
 # https://stackoverflow.com/questions/72012474/integrate-granting-of-capabilities-into-the-build-process
+
+# TODO: Examine this regarding imported libraries:
+# https://stackoverflow.com/a/49487630
 
 # We only want to do this if we are the top-level project
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME) 
@@ -18,6 +25,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     set(CMAKE_CXX_STANDARD 11)
     set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
     find_package(Doxygen)
@@ -25,6 +36,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         add_subdirectory(docs)
     else()
         message(STATUS "Doxygen not found, not building documentation")
+    endif()
+
+    if(BUILD_TESTING)
+        include(CTest)
     endif()
 
 endif()
@@ -51,18 +66,27 @@ if(NOT PCAP_FOUND)
 
 endif()
 
+# TODO: I want a clean way to swap out network interface implementations. So
+#       I'd like the DAQCap library not to include the pcap version, and link
+#       it to whatever implementation is relevant. So link to one
+#       implementation when compiling the tests, and another when compiling
+#       the examples or exposing the library to clients. I don't want clients
+#       to have to explicitly link the implementations.
+
+# TODO: Make sure that both ways of including libpcap get linked to correctly
+
 # Build the library
 add_library(
     DAQCap 
+    STATIC
     src/DAQCap.cpp 
-    src/NetworkInterface_PCap.cpp
     src/Packet.cpp
+    src/NetworkInterface_PCap.cpp
 )
 target_include_directories(DAQCap PUBLIC include)
 target_link_libraries(DAQCap PRIVATE ${PCAP_LIBRARY})
 
 # Build examples
-OPTION(BUILD_EXAMPLES "Build the Example Program" OFF)
 if(BUILD_EXAMPLES)
 
     add_subdirectory(examples)
@@ -71,7 +95,6 @@ endif()
 
 # Build the test suite
 # TODO: Only do this if we're the top level project?
-OPTION(BUILD_TESTING "Build the Test Suite" OFF)
 if(BUILD_TESTING)
 
     add_subdirectory(tests)

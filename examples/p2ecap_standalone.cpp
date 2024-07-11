@@ -140,7 +140,8 @@ int main(int argc, char **argv) {
 
 DAQCap::Device runDeviceSelection() {
 
-    std::vector<DAQCap::Device> devices = DAQCap::getDeviceList();
+    std::vector<DAQCap::Device> devices 
+        = DAQCap::SessionHandler::getDeviceList();
 
     if(devices.size() == 0) {
 

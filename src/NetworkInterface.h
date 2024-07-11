@@ -22,8 +22,7 @@ namespace DAQCap {
     /**
      * @brief Gets a list of all network devices on the system.
      * 
-     * @return A vector of pairs, where each pair contains first the name of
-     * a device and second its description.
+     * @return A vector of populated Device objects.
      */
     std::vector<Device> getDevices();
 
@@ -55,10 +54,12 @@ namespace DAQCap {
         /**
          * @brief Constructs a listener object for the given device.
          * 
+         * @param device The device to listen on.
+         * 
          * @throws std::runtime_error if the device does not exist or could not
          * be initialized.
          */
-        static Listener *create(const std::string &deviceName);
+        static Listener *create(const Device &device);
 
     };
 

@@ -24,11 +24,13 @@ void listen_callback(
 	const u_char *packet_data
 );
 
+// A concrete class we'll be returning as a Listener* from the factory 
+// function
 class PCap_Listener: public Listener {
 
 public:
 
-    PCap_Listener(const std::string &deviceName);
+    PCap_Listener(const Device &device);
     ~PCap_Listener();
 
     PCap_Listener(const PCap_Listener &other)            = delete;
@@ -43,19 +45,19 @@ private:
 
 };
 
-PCap_Listener::PCap_Listener(const std::string &deviceName) {
+PCap_Listener::PCap_Listener(const Device &device) {
 
 	char errorBuffer[PCAP_ERRBUF_SIZE];
 
     // Arguments: device name, snap length, promiscuous mode, to_ms, error_buffer
-	handler = pcap_open_live(deviceName.data(), 65536, 1, 10000, errorBuffer);
+	handler = pcap_open_live(device.name.data(), 65536, 1, 10000, errorBuffer);
 	if(!handler) {
 
 		handler = nullptr;
 
 		throw std::runtime_error(
 			std::string("Could not open device ") 
-                + deviceName + " : " + errorBuffer
+                + device.name + " : " + errorBuffer
 		);
 
 	}
@@ -204,8 +206,8 @@ void listen_callback(
 
 }
 
-Listener *Listener::create(const std::string &deviceName) {
+Listener *Listener::create(const Device &device) {
 
-    return new PCap_Listener(deviceName);
+    return new PCap_Listener(device);
 
 }

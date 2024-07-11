@@ -1,8 +1,4 @@
-
-
 # TODO: Find Catch2 if it exists, and only FetchContent if it doesn't
-
-include(CTest)
 
 # Get Catch2
 FetchContent_Declare(

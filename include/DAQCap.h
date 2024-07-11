@@ -1,8 +1,7 @@
 /**
  * @file DAQCap.h
  *
- * @brief Main interface for the DAQCap library. Adapted from code by
- * Liang Guan (guanl@umich.edu).
+ * @brief Main interface for the DAQCap library.
  *
  * @author Robert Myers
  * Contact: romyers@umich.edu
@@ -22,13 +21,6 @@ namespace DAQCap {
 
     // TODO: A better way to do this
     const int NO_LIMIT = -1;
-
-    /**
-     * @brief Gets a list of all network devices on the system.
-     * 
-     * @return A vector of Device objects.
-     */
-    std::vector<Device> getDeviceList();
 
     /**
      * @brief Manages a session with a network device. 
@@ -81,6 +73,13 @@ namespace DAQCap {
             int timeout = NO_LIMIT,      // milliseconds
             int packetsToRead = NO_LIMIT // packets
         );
+
+        /**
+         * @brief Gets a list of all network devices on the system.
+         * 
+         * @return A vector of Device objects.
+         */
+        static std::vector<Device> getDeviceList();
 
         // TODO: Add functionality for:
         //         -- checking packet numbers

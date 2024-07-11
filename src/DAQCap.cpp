@@ -45,7 +45,7 @@ private:
 
 SessionHandler::SessionHandler_impl::SessionHandler_impl(
     const Device &device
-) : listener(Listener::create(device.name)) {
+) : listener(Listener::create(device)) {
 
 }
 
@@ -132,12 +132,6 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
 
         // 4 bytes of postload
         const unsigned char *dataEnd = packet.data + packet.size - 4; 
-
-        // TODO: Consider adding methods to Listener for extracting data and
-        //       packet numbers from a packet
-        //         -- this requires knowledge of the format of packet data
-        //            though, which isn't something Listener is supposed to
-        //            care about
 
         // TODO: It might be better to maintain the separation between each
         //       packet's data in the blob, rather than concatenating it all
@@ -247,7 +241,7 @@ int DataBlob::countPackets() const {
 }
 
 // TODO: Get rid of this and remove pcap.h header
-std::vector<Device> DAQCap::getDeviceList() {
+std::vector<Device> SessionHandler::getDeviceList() {
 
     return getDevices();
 

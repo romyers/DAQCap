@@ -5,9 +5,24 @@ set(DOXYGEN_EXCLUDE_PATTERNS "*.cpp")
 
 # TODO: Add an option for building internal documentation
 
-doxygen_add_docs(
-    docs 
-    ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/mainpage.md
-    COMMENT "Generate documentation"
-)
+option(BUILD_INTERNAL_DOCS "Build internal documentation" OFF)
+if(BUILD_INTERNAL_DOCS)
+
+    doxygen_add_docs(
+        docs 
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/mainpage.md
+        COMMENT "Generate documentation"
+    )
+
+else()
+
+    doxygen_add_docs(
+        docs 
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/mainpage.md
+        COMMENT "Generate documentation"
+    )
+
+endif()

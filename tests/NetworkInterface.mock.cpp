@@ -10,7 +10,7 @@ class MockListener: public Listener {
 
 public:
 
-    MockListener(const std::string &deviceName);
+    MockListener(const Device &device);
     ~MockListener();
 
     MockListener(const MockListener &other)            = delete;
@@ -21,7 +21,7 @@ public:
 
 };
 
-MockListener::MockListener(const std::string &deviceName) {
+MockListener::MockListener(const Device &device) {
 
 }
 
@@ -39,8 +39,8 @@ std::vector<Packet> MockListener::listen(int packetsToRead) {
 
 }
 
-Listener *Listener::create(const std::string &deviceName) {
+Listener *Listener::create(const Device &device) {
 
-    return new MockListener(deviceName);
+    return new MockListener(device);
 
 }

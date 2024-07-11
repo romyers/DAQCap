@@ -29,6 +29,7 @@ Packet::Packet(Packet &&other) noexcept
     : data(other.data), size(other.size) {
 
     other.data = nullptr;
+    other.size = 0;
 
 }
 
@@ -55,6 +56,7 @@ Packet &Packet::operator=(Packet &&other) noexcept {
     size = other.size;
 
     other.data = nullptr;
+    other.size = 0;
 
     return *this;
 
