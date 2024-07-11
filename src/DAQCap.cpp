@@ -154,7 +154,7 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
         // the rest in the blob
         blob.data.insert(
             blob.data.end(), 
-            dataStart, 
+            dataStart,
             dataEnd
         );
 

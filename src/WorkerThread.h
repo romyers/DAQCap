@@ -42,8 +42,12 @@ namespace DAQThread {
          * be executed as soon as the worker thread is available.
          * 
          * @param task The task to execute. This should be a callable object.
+         * 
+         * @param priority The priority of the task. Higher values indicate 
+         * higher priority. Tasks with the same priority are executed in the 
+         * order they were assigned.
          */
-        void assignTask(T task);
+        void assignTask(T task, int priority = 0);
 
         /**
          * @brief Removes any tasks that have not yet been started and notifies
@@ -60,9 +64,43 @@ namespace DAQThread {
 
     private:
 
+        struct PriorityTask {
+
+            PriorityTask(T task, int priority) 
+                : task(std::move(task)), priority(priority) {}
+
+            PriorityTask(const PriorityTask &other) = delete;
+            PriorityTask &operator=(const PriorityTask &other) = delete;
+
+            PriorityTask(PriorityTask &&other) noexcept
+                : task(std::move(other.task)), priority(other.priority) {}
+
+            PriorityTask &operator=(PriorityTask &&other) noexcept {
+                task = std::move(other.task);
+                priority = other.priority;
+                return *this;
+            }
+
+            T task;
+            int priority;
+
+        };
+
+        struct TaskComparator {
+
+            bool operator()(const PriorityTask &lhs, const PriorityTask &rhs) {
+                return lhs.priority < rhs.priority;
+            }
+
+        };
+
         std::thread t;
 
-        std::queue<T> tasks;
+        std::priority_queue<
+            PriorityTask, 
+            std::vector<PriorityTask>, 
+            TaskComparator
+        > tasks;
 
         std::mutex m;
         std::condition_variable cv;
@@ -88,24 +126,26 @@ DAQThread::Worker<T>::Worker()
                 return tasks.size() > 0 || isTerminated; 
             });
 
-            // Check for tasks
-            // TODO: Is this check redundant after the cv.wait predicate?
-            if(tasks.size() > 0) {
+            // NOTE: We should know that tasks.size() > 0 thanks to the 
+            //       condition we gave to cv.wait().
 
-                // Get the next task
-                T task = std::move(tasks.front());
-                tasks.pop();
+            // Get the next task
+            // NOTE: Because priority_queue::top() forces copy construction
+            //       on us by returning const T&, we have to do a 
+            //       const_cast so we can bind it to a T&& and move it.
+            //       This may leave top() in a broken state, so we must
+            //       pop() it immediately and make sure that nothing else
+            //       happens to the queue in between.
+            // See: https://stackoverflow.com/a/20149745
+            PriorityTask task = std::move(
+                const_cast<PriorityTask&>(tasks.top())
+            );
+            tasks.pop();
 
-                lock.unlock();
+            lock.unlock();
 
-                // TODO: Remember that task() might throw an exception.
-                task();
-
-            } else {
-
-                lock.unlock();
-
-            }
+            // TODO: Remember that task() might throw an exception.
+            task.task();
 
         }
 
@@ -121,13 +161,13 @@ DAQThread::Worker<T>::~Worker() {
 }
 
 template<typename T>
-void DAQThread::Worker<T>::assignTask(T task) {
+void DAQThread::Worker<T>::assignTask(T task, int priority) {
 
     if(isTerminated) return;
 
     std::unique_lock<std::mutex> lock(m);
 
-    tasks.push(std::move(task));
+    tasks.emplace(std::move(task), priority);
 
     lock.unlock();
 

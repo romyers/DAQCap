@@ -7,6 +7,9 @@ using namespace DAQCap;
 Packet::Packet(const unsigned char *data, size_t size)
     : data(new unsigned char[size]), size(size) {
 
+    // TODO: In practice, this copy is unnecessary. Packet can just assume
+    //       ownership of the data pointer. It's useful to copy the data here
+    //       only to make Packet more obvious to future developers.
     std::copy(data, data + size, this->data);
 
 }

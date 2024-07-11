@@ -193,7 +193,7 @@ void listen_callback(
 	const u_char *packet_data
 ) {
 
-    g_packetBuffer.push_back({ packet_data, header->len });
+    g_packetBuffer.emplace_back(packet_data, header->len);
 
     delete[] useless;
     useless = nullptr;
