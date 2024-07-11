@@ -29,6 +29,8 @@ PyMovie.ini
 # Output files
 *.log
 *.out
+out/
+data/
 
 # Compiled Object files
 *.slo

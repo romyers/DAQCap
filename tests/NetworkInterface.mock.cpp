@@ -23,8 +23,6 @@ private:
 
 Listener::Listener_impl::Listener_impl(const std::string &deviceName) {}
 
-Listener::Listener_impl::~Listener_impl() {}
-
 void Listener::Listener_impl::interrupt() {
 
     // TODO: Some way to test that this happened

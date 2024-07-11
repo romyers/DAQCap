@@ -4,8 +4,10 @@
 #include <stdexcept>
 #include <cstring>
 #include <string>
+#include <future>
 
 #include "NetworkInterface.h"
+#include "WorkerThread.h"
 
 #include <pcap.h>
 
@@ -26,11 +28,13 @@ public:
     SessionHandler_impl(const Device &device);
 
     void interrupt();
-    DataBlob fetchPackets(int packetsToRead);
+    DataBlob fetchPackets(int timeout, int packetsToRead);
 
 private:
 
     Listener listener;
+
+    DAQThread::Worker<std::packaged_task<std::vector<Packet>()>> workerThread;
 
 };
 
@@ -50,11 +54,66 @@ void SessionHandler::SessionHandler_impl::interrupt() {
 
 }
 
-DataBlob SessionHandler::SessionHandler_impl::fetchPackets(int packetsToRead) {
+DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
+    int timeout,
+    int packetsToRead
+) {
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Listen for packets with timeout using C++ async tools
+    ///////////////////////////////////////////////////////////////////////////
+
+    // TODO: We can improve this by posting our task to a persistent thread.
+    //       We can close and join the thread in the destructor for 
+    //       SessionHandler_impl. Use:
+    //       https://en.cppreference.com/w/cpp/thread/condition_variable
+    //       https://stackoverflow.com/questions/53014805/add-a-stdpackaged-task-to-an-existing-thread
+    //       https://stackoverflow.com/questions/35827459/assigning-a-new-task-to-a-thread-after-the-thread-completes-in-c
+
+    // Create a packaged_task out of the listen() call and get a future from it
+    std::packaged_task<std::vector<Packet>()> task([this, packetsToRead]() {
+
+        return listener.listen(packetsToRead);
+
+    });
+    std::future<std::vector<Packet>> future = task.get_future();
+
+    // Add the task to the worker thread
+    workerThread.assignTask(std::move(task));
+
+    // If we hit the timeout, interrupt the listener
+    if(
+        timeout != NO_LIMIT &&
+        future.wait_for(
+            std::chrono::milliseconds(timeout)
+        ) == std::future_status::timeout
+    ) {
+
+        interrupt();
+
+    }
+
+    // TODO: When we get a thread pool going, replace with future.wait()
+    //         -- A thread pool should clean up the multithreading logic in
+    //            DAQManager too.
+    //         -- Thread pool should have an option to force something to
+    //            start immediately. When this option occurs, we make a new
+    //            thread if existing threads are occupied. Then when a thread
+    //            frees up, we get rid of threads until we're back to the
+    //            hardware limit.
+    // Wait for the operation to finish and get the result
+    future.wait();
+    std::vector<Packet> packets = future.get();
+
+    // TODO: Signal to the user that we timed out, if we timed out.
+    //       Probably we want to look for exceptions thrown by the listener
+    //       if we got -1 or -2 out of pcap_dispatch
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Pack the data into the blob
+    ///////////////////////////////////////////////////////////////////////////
 
     DataBlob blob;
-    
-    std::vector<Packet> packets = listener.listen(packetsToRead);
 
     // Strip out preload/postload bytes from each packet's data and store in the blob
     blob.packetNumbers.reserve(packets.size());
@@ -206,8 +265,8 @@ void SessionHandler::interrupt() {
 
 }
 
-DataBlob SessionHandler::fetchPackets(int packetsToRead) { 
+DataBlob SessionHandler::fetchPackets(int timeout, int packetsToRead) { 
 
-    return impl->fetchPackets(packetsToRead); 
+    return impl->fetchPackets(timeout, packetsToRead); 
 
 }

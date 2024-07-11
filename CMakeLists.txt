@@ -65,8 +65,7 @@ target_link_libraries(DAQCap PRIVATE ${PCAP_LIBRARY})
 OPTION(BUILD_EXAMPLES "Build the Example Program" OFF)
 if(BUILD_EXAMPLES)
 
-    add_executable(p2ecap examples/p2ecap_standalone.cpp)
-    target_link_libraries(p2ecap PRIVATE DAQCap)
+    add_subdirectory(examples)
 
 endif()
 
@@ -75,41 +74,6 @@ endif()
 OPTION(BUILD_TESTING "Build the Test Suite" OFF)
 if(BUILD_TESTING)
 
-    # TODO: Find Catch2 if it exists, and only FetchContent if it doesn't
-
-    include(CTest)
-
-    # Get Catch2
-    FetchContent_Declare(
-        Catch2
-        GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG v3.6.0
-    )
-    FetchContent_MakeAvailable(Catch2)
-    
-    list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
-    include(Catch)
-
-    # Build the mock version of the DAQCap library
-    add_library(
-        DAQCapMock 
-        src/DAQCap.cpp 
-        src/Packet.cpp
-        tests/NetworkInterface.mock.cpp
-    )
-    target_include_directories(DAQCapMock PUBLIC include)
-    target_include_directories(DAQCapMock PRIVATE src)
-    
-    # Build the test executables
-    add_executable(testDAQCap tests/DAQCap.test.cpp)
-    target_link_libraries(testDAQCap PRIVATE Catch2::Catch2WithMain DAQCapMock)
-    add_test(NAME testDAQCap COMMAND testDAQCap)
-    catch_discover_tests(testDAQCap)
-
-    add_executable(testPacket tests/Packet.test.cpp src/Packet.cpp)
-    target_link_libraries(testPacket PRIVATE Catch2::Catch2WithMain)
-    target_include_directories(testPacket PRIVATE src)
-    add_test(NAME testPacket COMMAND testPacket)
-    catch_discover_tests(testPacket)
+    add_subdirectory(tests)
 
 endif()

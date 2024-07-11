@@ -1,3 +1,5 @@
+// Implementation of the NetworkInterface class using the libpcap library.
+
 #include "NetworkInterface.h"
 
 #include <stdexcept>

@@ -1,0 +1,2 @@
+add_executable(p2ecap p2ecap_standalone.cpp)
+target_link_libraries(p2ecap PRIVATE DAQCap)

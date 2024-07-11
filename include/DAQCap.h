@@ -21,7 +21,7 @@ namespace DAQCap {
     struct DataBlob;
 
     // TODO: A better way to do this
-    const int READ_ALL_PACKETS = -1;
+    const int NO_LIMIT = -1;
 
     /**
      * @brief Gets a list of all network devices on the system.
@@ -66,14 +66,21 @@ namespace DAQCap {
          * excluded from the data blob's data vector, but included in the
          * bufferedPackets count.
          * 
+         * @param timeout The maximum time to wait for packets to arrive, in
+         * milliseconds. If timeout is NO_LIMIT, fetchPackets() will wait
+         * indefinitely for packets to arrive.
+         * 
          * @param packetsToRead The number of packets to read in this call to
-         * fetchPackets(). If packetsToRead is READ_ALL_PACKETS, all packets in
+         * fetchPackets(). If packetsToRead is NO_LIMIT, all packets in
          * the current buffer will be read.
          * 
          * @return A DataBlob containing the packets together with their packet
          * numbers.
          */
-        virtual DataBlob fetchPackets(int packetsToRead = READ_ALL_PACKETS);
+        virtual DataBlob fetchPackets(
+            int timeout = NO_LIMIT,      // milliseconds
+            int packetsToRead = NO_LIMIT // packets
+        );
 
         // TODO: Add functionality for:
         //         -- checking packet numbers
