@@ -202,7 +202,7 @@ int main(int argc, char **argv) {
 		fileWriter.write((char*)blob.data.data(), blob.data.size());
 		fileWriter.flush();
 
-		packets += blob.countPackets();
+		packets += blob.packetCount;
 
 		while(packets / 1000 > thousands) {
 

@@ -15,6 +15,10 @@ using namespace DAQCap;
 const int    PACKET_NUMBER_OVERFLOW = 65536;
 const size_t PRELOAD_BYTES          = 14   ;
 const size_t POSTLOAD_BYTES         = 4    ;
+
+size_t Packet::WORD_SIZE = 5;
+
+std::vector<unsigned char> Packet::IDLE_WORD(WORD_SIZE, 0xFF);
         
 Packet::Packet(const unsigned char *raw_data, size_t size) {
 

@@ -68,7 +68,7 @@ namespace DAQCap {
          * packetsToRead packets have been read or all packets in the current
          * buffer have been read, whichever comes first. Idle packets are
          * excluded from the data blob's data vector, but included in the
-         * bufferedPackets count.
+         * packetCount count.
          * 
          * @param timeout The maximum time to wait for packets to arrive, in
          * milliseconds. If timeout is NO_LIMIT, fetchPackets() will wait
@@ -88,6 +88,18 @@ namespace DAQCap {
             int timeout = NO_LIMIT,      // milliseconds
             int packetsToRead = NO_LIMIT // packets
         );
+
+        /**
+         * @brief Configures the SessionHandler to discard idle words when
+         * fetching packets. Idle words are discarded by default.
+         */
+        virtual void startDiscardingIdleWords();
+
+        /**
+         * @brief Configures the SessionHandler to include idle words when
+         * fetching packets. Idle words are discarded by default.
+         */
+        virtual void stopDiscardingIdleWords();
 
         /**
          * @brief Gets a list of all network devices on the system.
@@ -118,21 +130,14 @@ namespace DAQCap {
     struct DataBlob {
 
         /**
-         * @brief The data stored in this blob.
+         * @brief The data stored in this blob, stored as words of data.
          */
         std::vector<unsigned char> data;
 
         /**
-         * @brief The packet numbers of the packets stored in this blob.
+         * @brief The number of packets stored in this blob.
          */
-        std::vector<int> packetNumbers;
-
-        /**
-         * @brief Returns number of packets stored in this blob.
-         * 
-         * @return The number of packets stored in this blob.
-         */
-        virtual int countPackets() const;
+        int packetCount = 0;
 
     };
 

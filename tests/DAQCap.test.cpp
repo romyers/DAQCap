@@ -44,19 +44,7 @@ TEST_CASE("DAQCap::SessionHandler", "[DAQCap]") {
 
         // The mock implementation of NetworkInterface just returns an empty
         // vector of packets if it's interrupted.
-        REQUIRE(data.countPackets() == 0);
-
-    }
-
-    SECTION("fetchPackets() returns correct packet numbers") {
-
-        DAQCap::DataBlob data = session.fetchPackets(1000, 30);
-
-        for(int i = 0; i < 30; ++i) {
-
-            REQUIRE(data.packetNumbers[i] == i);
-
-        }
+        REQUIRE(data.packetCount == 0);
 
     }
 
@@ -64,11 +52,11 @@ TEST_CASE("DAQCap::SessionHandler", "[DAQCap]") {
 
         DAQCap::DataBlob data = session.fetchPackets(1000, 30);
 
-        REQUIRE(data.countPackets() == 30);
+        REQUIRE(data.packetCount == 30);
 
         data = session.fetchPackets(1000, 500);
 
-        REQUIRE(data.countPackets() == 100);
+        REQUIRE(data.packetCount == 100);
 
     }
 

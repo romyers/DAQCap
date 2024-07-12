@@ -1,5 +1,7 @@
 // Implementation of the NetworkInterface class using the libpcap library.
 
+// Based on work by Liang Guan (guanl@umich.edu).
+
 #include "NetworkInterface.h"
 
 #include <stdexcept>
@@ -23,6 +25,9 @@ void listen_callback(
 	const struct pcap_pkthdr *header, 
 	const u_char *packet_data
 );
+
+// TODO: For testing, write an implementation that reads a pcap save file:
+//       https://www.tcpdump.org/manpages/pcap_open_offline.3pcap.html
 
 // A concrete class we'll be returning as a Listener* from the factory 
 // function

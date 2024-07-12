@@ -5,11 +5,14 @@
 #include <cstring>
 #include <string>
 #include <future>
+#include <deque>
 
 #include "NetworkInterface.h"
 #include "WorkerThread.h"
 
 #include <pcap.h>
+
+#include <iostream>
 
 using namespace DAQCap;
 
@@ -28,13 +31,19 @@ public:
     void interrupt();
     DataBlob fetchPackets(int timeout, int packetsToRead);
 
+    void startDiscardingIdleWords();
+    void stopDiscardingIdleWords();
+
 private:
 
     Listener *listener;
 
     DAQThread::Worker<std::packaged_task<std::vector<Packet>()>> workerThread;
 
-    int lastPacketNum = -1;
+    // Buffer for unfinished data words at the end of a packet
+    std::deque<unsigned char> unfinishedWords;
+
+    bool isDiscardingIdleWords = true;
 
 };
 
@@ -48,29 +57,12 @@ SessionHandler::SessionHandler_impl::SessionHandler_impl(
 
 }
 
-SessionHandler::SessionHandler_impl::~SessionHandler_impl() {
-
-    listener->interrupt();
-
-    workerThread.terminate();
-    workerThread.join();
-
-    if(listener) delete listener;
-    listener = nullptr;
-
-}
-
-void SessionHandler::SessionHandler_impl::interrupt() {
-
-    listener->interrupt();
-
-}
-
 DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
     int timeout,
     int packetsToRead
 ) {
 
+    // TODO: Extract timeout logic somewhere
     ///////////////////////////////////////////////////////////////////////////
     // Listen for packets with timeout using C++ async tools
     ///////////////////////////////////////////////////////////////////////////
@@ -103,7 +95,6 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
 
     // Wait for the operation to finish and get the result
     future.wait();
-
     std::vector<Packet> packets;
     try {
 
@@ -117,35 +108,58 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
 
     }
 
-    // TODO: Signal to the user that we timed out, if we timed out.
-    //       Probably we want to look for exceptions thrown by the listener
-    //       if we got -1 or -2 out of pcap_dispatch
-
     ///////////////////////////////////////////////////////////////////////////
     // Pack the data into the blob
     ///////////////////////////////////////////////////////////////////////////
 
-    // TODO: Check packet numbers for continuity
-    // TODO: Exclude idle words
-    // TODO: Make sure we can trust data blobs to hold exactly an integral 
-    //       number of words
-    //         -- Maybe we split packets into words?
+    // TODO: Check packet numbers for continuity and report gaps
 
     DataBlob blob;
 
-    // Unwind the packets into the blob
-    blob.packetNumbers.reserve(packets.size());
+    std::deque<unsigned char> data;
+    std::swap(data, unfinishedWords);
+
     for(const Packet &packet : packets) {
 
-        blob.packetNumbers.push_back(packet.getPacketNumber());
-
-        blob.data.insert(
-            blob.data.end(), 
+        data.insert(
+            data.end(),
             packet.cbegin(),
             packet.cend()
         );
 
     }
+
+    blob.packetCount = packets.size();
+    blob.data.reserve(data.size());
+
+    while(data.size() >= Packet::WORD_SIZE) {
+
+        if(
+            !isDiscardingIdleWords ||
+            !std::equal(
+                data.cbegin(),
+                data.cbegin() + Packet::WORD_SIZE,
+                Packet::IDLE_WORD.cbegin()
+            )
+        ) {
+
+            blob.data.insert(
+                blob.data.end(),
+                std::make_move_iterator(data.begin()),
+                std::make_move_iterator(data.begin() + Packet::WORD_SIZE)
+            );
+
+        }
+
+        // TODO: Is it faster to just loop and pop_front? I think erase might
+        //       be linear even in this case.
+        // TODO: Or maybe it's better to push everything to the front instead
+        //       of the back and then erase from the back?
+        data.erase(data.begin(), data.begin() + Packet::WORD_SIZE);
+
+    }
+
+    std::swap(unfinishedWords, data);
 
     return blob;
 
@@ -157,7 +171,8 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
     //       other code that uses the word size should get it from there.
     //         -- This will do the same things the Signal class does, so
     //            we should couple them together. Signal is all about
-    //            data format.
+    //            data format. It would be good to keep all the data format
+    //            details together.
     //         -- Packet is a good place to put all this.
     //         -- The data format class should be pure virtual.
     //         -- Perhaps we replace DataBlob with Packet.
@@ -165,39 +180,35 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
     //            right in the DAQCap module. But we still need to be able
     //            to write raw data files.
 
-    // std::vector<unsigned char> idleWord(wordSize, 0xFF);
-    // for(const Packet &packet : g_packetBuffer) {
+}
 
-        ///////////////////////////////////////////////////////////////////////
+SessionHandler::SessionHandler_impl::~SessionHandler_impl() {
 
-        /*
-        for(
-            int iter = DATA_START; 
-            iter < packet.header->len - 4; 
-            iter += wordSize
-        ) {
+    listener->interrupt();
 
-            // TODO: Check that I have this condition the right way around
-            if(
-                std::memcmp(
-                    packet.data + iter, idleWord.data(), wordSize
-                ) != 0
-            ) {
+    workerThread.terminate();
+    workerThread.join();
 
-                blob.data.insert(
-                    blob.data.end(), 
-                    packet.data + iter, 
-                    packet.data + iter + wordSize
-                );
+    if(listener) delete listener;
+    listener = nullptr;
 
-            }
+}
 
-        }
-        */
+void SessionHandler::SessionHandler_impl::startDiscardingIdleWords() {
 
-        ///////////////////////////////////////////////////////////////////////
+    isDiscardingIdleWords = true;
 
-    // }
+}
+
+void SessionHandler::SessionHandler_impl::stopDiscardingIdleWords() {
+
+    isDiscardingIdleWords = false;
+
+}
+
+void SessionHandler::SessionHandler_impl::interrupt() {
+
+    listener->interrupt();
 
 }
 
@@ -205,13 +216,6 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-int DataBlob::countPackets() const {
-
-    return packetNumbers.size();
-
-}
-
-// TODO: Get rid of this and remove pcap.h header
 std::vector<Device> SessionHandler::getDeviceList() {
 
     return getDevices();
@@ -241,5 +245,17 @@ void SessionHandler::interrupt() {
 DataBlob SessionHandler::fetchPackets(int timeout, int packetsToRead) { 
 
     return impl->fetchPackets(timeout, packetsToRead); 
+
+}
+
+void SessionHandler::startDiscardingIdleWords() {
+
+    impl->startDiscardingIdleWords();
+
+}
+
+void SessionHandler::stopDiscardingIdleWords() {
+
+    impl->stopDiscardingIdleWords();
 
 }

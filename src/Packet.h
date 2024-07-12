@@ -98,6 +98,16 @@ namespace DAQCap {
          */
         static int packetsBetween(const Packet &first, const Packet &second);
 
+        /**
+         * @brief The size of data words contained in the packet, in bytes
+         */
+        static size_t WORD_SIZE;
+
+        /**
+         * @brief The signature of an idle data word.
+         */
+        static std::vector<unsigned char> IDLE_WORD;
+
     private:
 
         std::vector<unsigned char> data;

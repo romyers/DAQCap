@@ -7,6 +7,7 @@ using namespace DAQCap;
 const int    PACKET_NUMBER_OVERFLOW = 65535;
 const size_t PRELOAD_BYTES          = 14   ;
 const size_t POSTLOAD_BYTES         = 4    ;
+const size_t WORD_SIZE              = 5    ;
 
 TEST_CASE("Packet constructor", "[Packet]") {
 
@@ -71,7 +72,7 @@ TEST_CASE("Packet::getPacketNumber()", "[Packet]") {
         for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
             data[i] = i - PRELOAD_BYTES + 1;
         }
-        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+        for(int i = size; i --> size - POSTLOAD_BYTES; ) {
             data[i] = 0;
         }
         for(int i = size - POSTLOAD_BYTES; i < size - 2; ++i) {
@@ -95,7 +96,7 @@ TEST_CASE("Packet::getPacketNumber()", "[Packet]") {
         for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
             data[i] = i - PRELOAD_BYTES + 1;
         }
-        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+        for(int i = size; i --> size - POSTLOAD_BYTES; ) {
             data[i] = 0;
         }
         data[size - 2] = 0x01;
@@ -265,7 +266,7 @@ TEST_CASE("Packet::const_iterator", "[Packet]") {
         for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
             data[i] = i - PRELOAD_BYTES + 1;
         }
-        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+        for(int i = size; i --> size - POSTLOAD_BYTES; ) {
             data[i] = 0;
         }
         Packet packet(data, size);
@@ -286,7 +287,7 @@ TEST_CASE("Packet::const_iterator", "[Packet]") {
         for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
             data[i] = i - PRELOAD_BYTES + 1;
         }
-        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+        for(int i = size; i --> size - POSTLOAD_BYTES; ) {
             data[i] = 0;
         }
         Packet packet(data, size);
@@ -307,7 +308,7 @@ TEST_CASE("Packet::const_iterator", "[Packet]") {
         for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
             data[i] = i - PRELOAD_BYTES + 1;
         }
-        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+        for(int i = size; i --> size - POSTLOAD_BYTES; ) {
             data[i] = 0;
         }
         Packet packet(data, size);
@@ -334,7 +335,7 @@ TEST_CASE("Packet::operator[]", "[Packet]") {
         for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
             data[i] = i - PRELOAD_BYTES + 1;
         }
-        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+        for(int i = size; i --> size - POSTLOAD_BYTES; ) {
             data[i] = 0;
         }
         Packet packet(data, size);
@@ -355,7 +356,7 @@ TEST_CASE("Packet::operator[]", "[Packet]") {
         for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
             data[i] = i - PRELOAD_BYTES + 1;
         }
-        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+        for(int i = size; i --> size - POSTLOAD_BYTES; ) {
             data[i] = 0;
         }
         Packet packet(data, size);
@@ -365,5 +366,19 @@ TEST_CASE("Packet::operator[]", "[Packet]") {
         }
 
     }
+
+}
+
+TEST_CASE("Packet::WORD_SIZE is correctly set", "[Packet]") {
+
+    REQUIRE(Packet::WORD_SIZE == WORD_SIZE);
+
+}
+
+TEST_CASE("Packet::IDLE_WORD is correctly set", "[Packet]") {
+
+    std::vector<unsigned char> idleWord = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+    REQUIRE(Packet::IDLE_WORD == idleWord);
 
 }
