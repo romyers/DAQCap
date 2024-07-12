@@ -130,8 +130,7 @@ namespace DAQCap {
          */
         static std::vector<Device> getDeviceList();
 
-        // TODO: Add functionality for:
-        //         -- checking packet numbers
+        // TODO: Fix segfault when interrupting a session handler
         // TODO: Testing. Part of this refactoring effort is to establish
         //       a unit test suite.
         // TODO: Go through the interface and make sure it's good.

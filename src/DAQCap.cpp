@@ -12,8 +12,6 @@
 
 #include <pcap.h>
 
-#include <iostream>
-
 using namespace DAQCap;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -118,9 +116,11 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
 
     }
 
-    // TODO: Check packet numbers for continuity and report gaps
-    //         -- The troublesome part is figuring out how to emit the relevant
-    //            data to the user when there are gaps
+    if(packets.empty()) {
+
+        return DataBlob();
+
+    }
 
     DataBlob blob;
 
@@ -240,10 +240,12 @@ SessionHandler::SessionHandler_impl::~SessionHandler_impl() {
     listener->interrupt();
 
     workerThread.terminate();
+
     workerThread.join();
 
     if(listener) delete listener;
     listener = nullptr;
+
 
 }
 
