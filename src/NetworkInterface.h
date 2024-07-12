@@ -36,6 +36,8 @@ namespace DAQCap {
 
     public:
 
+        virtual ~Listener() = default;
+
         /**
          * @brief Interrupts calls to listen(), causing them to abort
          * execution and return. No effect if no calls to listen() are

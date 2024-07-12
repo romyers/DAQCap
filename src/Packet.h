@@ -49,7 +49,7 @@ namespace DAQCap {
         Packet();
 
         /**
-         * @brief Constructor.
+         * @brief Constructs a packet from the given data.
          * 
          * @param raw_data A pointer to the raw packet data, stored as an array
          * of unsigned chars. Packet does not need the data pointer to persist
@@ -71,6 +71,8 @@ namespace DAQCap {
 
         /**
          * @brief Returns the packet number associated with this packet.
+         * 
+         * @note The null packet will have a packet number of 0.
          */
         int getPacketNumber() const;
 
@@ -144,7 +146,8 @@ namespace DAQCap {
 
     private:
 
-        // TODO: This can go away once we make this an abstract base class
+        int packetNumber;
+
         std::vector<unsigned char> data;
 
         unsigned long ID;

@@ -28,17 +28,14 @@ std::vector<unsigned char> Packet::idleWord() {
 
 }
 
-Packet::Packet() {
-
-    // Make sure everything stays well-defined.
-    data.resize(PRELOAD_BYTES + POSTLOAD_BYTES);
+Packet::Packet() : packetNumber(0) {
 
     // A 0 ID denotes a null packet
     ID = 0;
 
 }
         
-Packet::Packet(const unsigned char *raw_data, size_t size) {
+Packet::Packet(const unsigned char *raw_data, size_t size) : packetNumber(0) {
 
     if(size < PRELOAD_BYTES + POSTLOAD_BYTES) {
 
@@ -50,7 +47,18 @@ Packet::Packet(const unsigned char *raw_data, size_t size) {
 
     }
 
-    data.insert(data.end(), raw_data, raw_data + size);
+    for(int i = size - 2; i < size; ++i) {
+
+        packetNumber <<= 8;
+        packetNumber += raw_data[i];
+
+    }
+
+    data.insert(
+        data.end(), 
+        raw_data + PRELOAD_BYTES, 
+        raw_data + size - POSTLOAD_BYTES
+    );
 
     // A 0 ID denotes a null packet, so real packets should start at 1
     static unsigned long counter = 1;
@@ -68,27 +76,18 @@ bool Packet::isNull() const {
 
 int Packet::getPacketNumber() const {
 
-    int number = 0;
-
-    for(int i = data.size() - 2; i < data.size(); ++i) {
-
-        number <<= 8;
-        number += data[i];
-
-    }
-
-    return number;
+    return packetNumber;
 
 }
 
 // TODO: Definitely need to test these iterators
 
 Packet::const_iterator Packet::cbegin() const { 
-    return data.cbegin() + PRELOAD_BYTES; 
+    return data.cbegin(); 
 }
 
 Packet::const_iterator Packet::cend() const { 
-    return data.cend() - POSTLOAD_BYTES; 
+    return data.cend(); 
 }
 
 int Packet::packetsBetween(const Packet &first, const Packet &second) {

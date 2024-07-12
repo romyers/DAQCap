@@ -29,6 +29,14 @@ TEST_CASE("Default packet is null", "[Packet]") {
 
 }
 
+TEST_CASE("Default packet has packet number 0", "[Packet]") {
+
+    Packet packet;
+
+    REQUIRE(packet.getPacketNumber() == 0);
+
+}
+
 TEST_CASE("Packet constructor", "[Packet]") {
 
     SECTION("Packet constructor throws an exception if the size is too small") {

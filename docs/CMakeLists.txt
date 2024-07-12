@@ -13,6 +13,7 @@ if(BUILD_INTERNAL_DOCS)
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/mainpage.md
+        ${CMAKE_CURRENT_SOURCE_DIR}/Developer_Notes.md
         COMMENT "Generate documentation"
     )
 

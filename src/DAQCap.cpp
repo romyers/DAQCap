@@ -53,12 +53,19 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+SessionHandler::SessionHandler(const Device &device)
+    : impl(new SessionHandler_impl(device)) {}
 SessionHandler::SessionHandler_impl::SessionHandler_impl(
     const Device &device
 ) : listener(Listener::create(device)) {
 
 }
 
+
+DataBlob SessionHandler::fetchData(
+    int timeout, 
+    int packetsToRead
+) { return impl->fetchData(timeout, packetsToRead);}
 DataBlob SessionHandler::SessionHandler_impl::fetchData(
     int timeout, 
     int packetsToRead
@@ -235,6 +242,8 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
 
 }
 
+
+SessionHandler::~SessionHandler() { if(impl) delete impl; }
 SessionHandler::SessionHandler_impl::~SessionHandler_impl() {
 
     listener->interrupt();
@@ -249,12 +258,17 @@ SessionHandler::SessionHandler_impl::~SessionHandler_impl() {
 
 }
 
+
+void SessionHandler::setIncludeIdleWords(bool discard) {
+    impl->setIncludeIdleWords(discard);
+}
 void SessionHandler::SessionHandler_impl::setIncludeIdleWords(bool discard) {
 
     includingIdleWords = discard;
 
 }
 
+void SessionHandler::interrupt() { impl->interrupt(); }
 void SessionHandler::SessionHandler_impl::interrupt() {
 
     listener->interrupt();
@@ -268,40 +282,5 @@ void SessionHandler::SessionHandler_impl::interrupt() {
 std::vector<Device> SessionHandler::getDeviceList() {
 
     return getDevices();
-
-}
-
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-
-SessionHandler::SessionHandler(const Device &device)
-    : impl(new SessionHandler_impl(device)) {}
-
-SessionHandler::~SessionHandler() {
-    
-    if(impl) delete impl;
-    impl = nullptr;
-    
-}
-
-void SessionHandler::interrupt() { 
-
-    impl->interrupt(); 
-
-}
-
-DataBlob SessionHandler::fetchData(
-    int timeout, 
-    int packetsToRead
-) { 
-
-    return impl->fetchData(timeout, packetsToRead);
-
-}
-
-void SessionHandler::setIncludeIdleWords(bool discard) {
-
-    impl->setIncludeIdleWords(discard);
 
 }

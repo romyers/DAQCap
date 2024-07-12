@@ -8,6 +8,9 @@ TEST_CASE("FORCEFAIL") {
 
 }
 
+// TODO: Benchmarking using Catch2's benchmark macro
+// TODO: Mocking framework
+
 TEST_CASE("DAQCap::SessionHandler::getDeviceList calls internal", "[DAQCap]") {
 
     std::vector<DAQCap::Device> devices 

@@ -44,10 +44,10 @@ endif()
 # Point CMAKE at the project directory for modules
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules/")
 
-# Find libpcap
-find_package(PCAP REQUIRED)
+# TODO: Test what happens if pcap isn't preinstalled
 
-# If libpcap is not found, fetch it from GitHub
+# Find libpcap, and fetch it if it's not found
+find_package(PCAP REQUIRED)
 if(NOT PCAP_FOUND)
 
     message(STATUS "libpcap not found, fetching from GitHub")
@@ -59,13 +59,19 @@ if(NOT PCAP_FOUND)
     )
     FetchContent_MakeAvailable(libpcap)
 
+    set(PCAP_FOUND TRUE)
+
+endif()
+
+# If we found libpcap, set the network interface to PCAP
+if(PCAP_FOUND)
+    
+    set(NETWORK_INTERFACE PCAP)
+
 endif()
 
 # TODO: Look at this for debug logging:
 #       https://www.reddit.com/r/cpp_questions/comments/obndlq/help_use_cmake_to_define_and_test_preprocessor/
-
-# TODO: Implement an option to not use pcap, and only do this if we have pcap
-set(PCAP_FOUND TRUE)
 
 # TODO: I want a clean way to swap out network interface implementations. So
 #       I'd like the DAQCap library not to include the pcap version, and link
@@ -87,7 +93,7 @@ add_library(
     src/NetworkInterface.cpp
 )
 target_include_directories(DAQCap PUBLIC include)
-if(PCAP_FOUND)
+if(NETWORK_INTERFACE STREQUAL PCAP)
     target_compile_definitions(DAQCap PRIVATE PCAP=1)
     target_link_libraries(DAQCap PRIVATE ${PCAP_LIBRARY})
 endif()
