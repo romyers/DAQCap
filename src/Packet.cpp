@@ -1,66 +1,114 @@
 #include "Packet.h"
 
 #include <algorithm>
+#include <stdexcept>
 
 using namespace DAQCap;
+
+/*
+ * Packet format:
+ *   14 bytes pre-load
+ *   N bytes of data
+ *   4 bytes post-load (last two bytes are the packet number)
+ */
+
+const int    PACKET_NUMBER_OVERFLOW = 65536;
+const size_t PRELOAD_BYTES          = 14   ;
+const size_t POSTLOAD_BYTES         = 4    ;
         
-Packet::Packet(const unsigned char *data, size_t size)
-    : data(new unsigned char[size]), size(size) {
+Packet::Packet(const unsigned char *raw_data, size_t size) {
 
-    // TODO: In practice, this copy is unnecessary. Packet can just assume
-    //       ownership of the data pointer. It's useful to copy the data here
-    //       only to make Packet more obvious to future developers.
-    std::copy(data, data + size, this->data);
+    if(size < PRELOAD_BYTES + POSTLOAD_BYTES) {
 
-}
+        throw std::invalid_argument(
+            std::string("Packet::Packet: raw_data must be at least ")
+                + std::to_string(PRELOAD_BYTES + POSTLOAD_BYTES)
+                + " bytes long."
+        );
 
-Packet::~Packet() {
+    }
 
-    delete[] data;
-    data = nullptr;
+    data.insert(data.end(), raw_data, raw_data + size);
 
-}
+    static unsigned long counter = 0;
 
-Packet::Packet(const Packet &other) 
-    : data(new unsigned char[other.size]), size(other.size) {
-
-    std::copy(other.data, other.data + size, data);
-
-}
-        
-Packet::Packet(Packet &&other) noexcept
-    : data(other.data), size(other.size) {
-
-    other.data = nullptr;
-    other.size = 0;
+    ID = counter;
+    ++counter;
 
 }
 
-Packet &Packet::operator=(const Packet &other) {
+int Packet::getPacketNumber() const {
 
-    if(this == &other) return *this;
+    int number = 0;
 
-    delete[] data;
-    data = new unsigned char[other.size];
-    size = other.size;
+    for(int i = data.size() - 2; i < data.size(); ++i) {
 
-    std::copy(other.data, other.data + size, data);
+        number <<= 8;
+        number += data[i];
 
-    return *this;
+    }
+
+    return number;
 
 }
 
-Packet &Packet::operator=(Packet &&other) noexcept {
+// TODO: Definitely need to test these iterators
 
-    if(this == &other) return *this;
+Packet::const_iterator Packet::cbegin() const { 
+    return data.cbegin() + PRELOAD_BYTES; 
+}
 
-    delete[] data;
-    data = other.data;
-    size = other.size;
+Packet::const_iterator Packet::cend() const { 
+    return data.cend() - POSTLOAD_BYTES; 
+}
 
-    other.data = nullptr;
-    other.size = 0;
+int Packet::packetsBetween(const Packet &first, const Packet &second) {
 
-    return *this;
+    // This makes sure that first is always the packet that came first.
+    if(first.ID > second.ID) {
+
+        return packetsBetween(second, first);
+
+    }
+
+    // TODO: The following code could be made more obvious, or at least
+    //       commented
+
+    int diff = 0;
+    
+    if(first.getPacketNumber() > second.getPacketNumber()) {
+
+        diff = (second.getPacketNumber() + PACKET_NUMBER_OVERFLOW)
+                - (first.getPacketNumber() + 1);
+
+    } else {
+
+        diff = second.getPacketNumber() - (first.getPacketNumber() + 1);
+
+    }
+    
+    if(diff < 0) diff += PACKET_NUMBER_OVERFLOW;
+
+    return diff;
+
+}
+
+size_t Packet::size() const { 
+
+    return cend() - cbegin();
+
+}
+
+unsigned char Packet::operator[](size_t index) const {
+
+    if(index >= size()) {
+
+        throw std::out_of_range(
+            "Packet::operator[]: index out of range."
+        );
+
+    }
+
+    return *(cbegin() + index);
 
 }

@@ -11,16 +11,13 @@
 
 #include <pcap.h>
 
-// TODO: Try to get rid of throws
-
-// TODO: Try to make Device opaque?
-
 using namespace DAQCap;
 
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
+// PIMPL implementation class for SessionHandler
 class SessionHandler::SessionHandler_impl {
 
 public:
@@ -37,6 +34,8 @@ private:
 
     DAQThread::Worker<std::packaged_task<std::vector<Packet>()>> workerThread;
 
+    int lastPacketNum = -1;
+
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -50,6 +49,11 @@ SessionHandler::SessionHandler_impl::SessionHandler_impl(
 }
 
 SessionHandler::SessionHandler_impl::~SessionHandler_impl() {
+
+    listener->interrupt();
+
+    workerThread.terminate();
+    workerThread.join();
 
     if(listener) delete listener;
     listener = nullptr;
@@ -71,13 +75,6 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
     // Listen for packets with timeout using C++ async tools
     ///////////////////////////////////////////////////////////////////////////
 
-    // TODO: We can improve this by posting our task to a persistent thread.
-    //       We can close and join the thread in the destructor for 
-    //       SessionHandler_impl. Use:
-    //       https://en.cppreference.com/w/cpp/thread/condition_variable
-    //       https://stackoverflow.com/questions/53014805/add-a-stdpackaged-task-to-an-existing-thread
-    //       https://stackoverflow.com/questions/35827459/assigning-a-new-task-to-a-thread-after-the-thread-completes-in-c
-
     // Create a packaged_task out of the listen() call and get a future from it
     std::packaged_task<std::vector<Packet>()> task([this, packetsToRead]() {
 
@@ -89,7 +86,7 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
     // Add the task to the worker thread
     workerThread.assignTask(std::move(task));
 
-    // If we hit the timeout, interrupt the listener
+    // If we hit the timeout, interrupt the listener and report the timeout
     if(
         timeout != NO_LIMIT &&
         future.wait_for(
@@ -98,20 +95,27 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
     ) {
 
         interrupt();
+        future.wait();
+
+        throw timeout_exception("DAQCap::SessionHandler::fetchPackets() timed out.");
 
     }
 
-    // TODO: When we get a thread pool going, replace with future.wait()
-    //         -- A thread pool should clean up the multithreading logic in
-    //            DAQManager too.
-    //         -- Thread pool should have an option to force something to
-    //            start immediately. When this option occurs, we make a new
-    //            thread if existing threads are occupied. Then when a thread
-    //            frees up, we get rid of threads until we're back to the
-    //            hardware limit.
     // Wait for the operation to finish and get the result
     future.wait();
-    std::vector<Packet> packets = future.get();
+
+    std::vector<Packet> packets;
+    try {
+
+        packets = future.get();
+
+    } catch(const std::exception &e) {
+
+        throw std::runtime_error(
+            std::string("Failed to fetch packets: ") + e.what()
+        );
+
+    }
 
     // TODO: Signal to the user that we timed out, if we timed out.
     //       Probably we want to look for exceptions thrown by the listener
@@ -121,81 +125,48 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
     // Pack the data into the blob
     ///////////////////////////////////////////////////////////////////////////
 
+    // TODO: Check packet numbers for continuity
+    // TODO: Exclude idle words
+    // TODO: Make sure we can trust data blobs to hold exactly an integral 
+    //       number of words
+    //         -- Maybe we split packets into words?
+
     DataBlob blob;
 
-    // Strip out preload/postload bytes from each packet's data and store in the blob
+    // Unwind the packets into the blob
     blob.packetNumbers.reserve(packets.size());
     for(const Packet &packet : packets) {
 
-        // 14 bytes of preload
-        const unsigned char *dataStart = packet.data + 14; 
+        blob.packetNumbers.push_back(packet.getPacketNumber());
 
-        // 4 bytes of postload
-        const unsigned char *dataEnd = packet.data + packet.size - 4; 
-
-        // TODO: It might be better to maintain the separation between each
-        //       packet's data in the blob, rather than concatenating it all
-        //       together. It's conceivable that clients of this library may
-        //       want to inspect individual packets. But really I want to make
-        //       sure that everything they might need individual packets for
-        //       is handled internally in the library.
-        //         -- On that note, we may want to avoid exposing packet
-        //            numbers to client code.
-        //         -- Well, either avoid exposing packet numbers or preserve
-        //            the distinction between data from different packets.
-
-        // Extract packet number from the packet and store it in the blob
-        int packetNum = (int)(*(packet.data + packet.size - 2) * 256);
-        packetNum += (int)(*(packet.data + packet.size - 1));
-
-        blob.packetNumbers.push_back(packetNum);
-
-        // Strip out preload/postload bytes from each packet's data and store
-        // the rest in the blob
         blob.data.insert(
             blob.data.end(), 
-            dataStart,
-            dataEnd
+            packet.cbegin(),
+            packet.cend()
         );
 
     }
 
     return blob;
 
+    // TODO: We abstracted out info about the network interface (i.e. pcap).
+    //       We should also abstract out info about the packet format. So
+    //       e.g. if someone changes the DAQ interface, the packet format is
+    //       in one easy to find place so it's easy to update the library.
+    //       That packet format should also include the word size, and all
+    //       other code that uses the word size should get it from there.
+    //         -- This will do the same things the Signal class does, so
+    //            we should couple them together. Signal is all about
+    //            data format.
+    //         -- Packet is a good place to put all this.
+    //         -- The data format class should be pure virtual.
+    //         -- Perhaps we replace DataBlob with Packet.
+    //         -- Maybe it makes sense to decode everything into signals
+    //            right in the DAQCap module. But we still need to be able
+    //            to write raw data files.
+
     // std::vector<unsigned char> idleWord(wordSize, 0xFF);
     // for(const Packet &packet : g_packetBuffer) {
-
-        /*
-
-        if(checkPackets) {
-
-            if(lastPacket != -1) {
-
-                if(packetNum != (lastPacket + 1) % 65536) {
-
-                    int missingPackets 
-                        = (packetNum - (lastPacket + 1)) % 65536;
-
-                    blob.errorMessages.push_back(
-                        std::to_string(missingPackets) 
-                            + " packets lost! Packet = "
-                            + std::to_string(packetNum) 
-                            + ", Last = " 
-                            + std::to_string(lastPacket)
-                    );
-
-                    blob.lostPackets += missingPackets;
-
-                }
-
-            }
-
-        }
-
-        // TODO: If we pull out validation, how do we handle updating this?
-        lastPacket = packetNum;
-
-        */
 
         ///////////////////////////////////////////////////////////////////////
 

@@ -2,190 +2,368 @@
 
 #include <Packet.h>
 
-TEST_CASE("Packet -- constructor populates data and size", "[Packet]") {
+using namespace DAQCap;
 
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04};
-    DAQCap::Packet packet(data, 4);
+const int    PACKET_NUMBER_OVERFLOW = 65535;
+const size_t PRELOAD_BYTES          = 14   ;
+const size_t POSTLOAD_BYTES         = 4    ;
 
-    REQUIRE(packet.size == 4);
-    REQUIRE(packet.data != nullptr);
+TEST_CASE("Packet constructor", "[Packet]") {
 
-    for (size_t i = 0; i < packet.size; i++) {
+    SECTION("Packet constructor throws an exception if the size is too small") {
 
-        REQUIRE(packet.data[i] == data[i]);
-        
+        unsigned char data[PRELOAD_BYTES + POSTLOAD_BYTES - 1];
+
+        REQUIRE_THROWS_AS(Packet(data, PRELOAD_BYTES + POSTLOAD_BYTES - 1), std::invalid_argument);
+
     }
 
-}
+    SECTION("Packet constructor does not throw an exception if the size is sufficiently large") {
 
-TEST_CASE("Packet -- constructor copies data", "[Packet]") {
+        unsigned char data[PRELOAD_BYTES + POSTLOAD_BYTES];
 
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04};
-    DAQCap::Packet packet(data, 4);
+        REQUIRE_NOTHROW(Packet(data, PRELOAD_BYTES + POSTLOAD_BYTES));
 
-    data[0] = 0x00;
-    data[3] = 0x05;
+    }
 
-    REQUIRE(packet.size == 4);
-    REQUIRE(packet.data != nullptr);
+}   
+
+TEST_CASE("Packet::size()", "[Packet]") {
+
+    SECTION("Packet::size() returns 0 for an empty packet") {
+
+        size_t packetSize = 0;
+        size_t size = PRELOAD_BYTES + POSTLOAD_BYTES + packetSize;
+
+        unsigned char data[size];
+        Packet packet(data, size);
+
+        REQUIRE(packet.size() == packetSize);
+
+    }
+
+    SECTION("Packet::size() returns the size of the data portion of the packet") {
+
+        size_t packetSize = 10;
+        size_t size = PRELOAD_BYTES + POSTLOAD_BYTES + packetSize;
+
+        unsigned char data[size];
+        Packet packet(data, size);
+
+        REQUIRE(packet.size() == packetSize);
+
+    }
     
-    REQUIRE(packet.data[0] == 0x01);
-    REQUIRE(packet.data[3] == 0x04);
 
 }
 
-TEST_CASE("Packet -- copy constructor copies data", "[Packet]") {
+TEST_CASE("Packet::getPacketNumber()", "[Packet]") {
 
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04};
-    DAQCap::Packet packet(data, 4);
+    SECTION("Packet number does not rely on all but last two postload bytes") {
 
-    DAQCap::Packet packet2(packet);
+        size_t packetSize = 10;
+        size_t size = PRELOAD_BYTES + POSTLOAD_BYTES + packetSize;
 
-    packet.data[0] = 0x00;
+        unsigned char data[size];
+        for(int i = 0; i < PRELOAD_BYTES; ++i) {
+            data[i] = 0;
+        }
+        for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
+            data[i] = i - PRELOAD_BYTES + 1;
+        }
+        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+            data[i] = 0;
+        }
+        for(int i = size - POSTLOAD_BYTES; i < size - 2; ++i) {
+            data[i] = 0x01;
+        }
+        Packet packet(data, size);
 
-    REQUIRE(packet2.data != nullptr);
+        REQUIRE(packet.getPacketNumber() == 0);    
 
-    for (size_t i = 0; i < 4; i++) {
+    }
 
-        REQUIRE(packet2.data[i] == data[i]);
-        
+    SECTION("Packet number is extracted correctly") {
+
+        size_t packetSize = 10;
+        size_t size = PRELOAD_BYTES + POSTLOAD_BYTES + packetSize;
+
+        unsigned char data[size];
+        for(int i = 0; i < PRELOAD_BYTES; ++i) {
+            data[i] = 0;
+        }
+        for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
+            data[i] = i - PRELOAD_BYTES + 1;
+        }
+        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+            data[i] = 0;
+        }
+        data[size - 2] = 0x01;
+        data[size - 1] = 0x02;
+        Packet packet(data, size);
+
+        REQUIRE(packet.getPacketNumber() == 0x0102);
+
     }
 
 }
 
-TEST_CASE("Packet -- copy constructor copies size", "[Packet]") {
+TEST_CASE("Packet::packetsBetween()", "[Packet]") {
 
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04};
-    DAQCap::Packet packet(data, 4);
+    int packetSize = 0;
+    int size = PRELOAD_BYTES + POSTLOAD_BYTES + packetSize;
 
-    DAQCap::Packet packet2(packet);
+    SECTION("packetsBetween() is zero between consecutive packets") {
 
-    REQUIRE(packet2.size == 4);
+        unsigned char data[size];
 
-}
+        data[size - 2] = 0x01;
+        data[size - 1] = 0x02;
 
-TEST_CASE("Packet -- copy assignment copies data", "[Packet]") {
+        unsigned char data2[size];
 
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04};
-    DAQCap::Packet packet(data, 4);
+        data2[size - 2] = 0x01;
+        data2[size - 1] = 0x03;
 
-    unsigned char data2[] = {0x05, 0x06, 0x07, 0x08};
-    DAQCap::Packet packet2(data2, 4);
+        Packet packet(data, size);
+        Packet packet2(data2, size);
 
-    packet2 = packet;
+        REQUIRE(Packet::packetsBetween(packet, packet2) == 0);
 
-    packet.data[0] = 0x00;
+    }
 
-    REQUIRE(packet2.data != nullptr);
+    SECTION("packetsBetween() is maximal between packets with the same packet number") {
 
-    for (size_t i = 0; i < 4; i++) {
+        unsigned char data[size];
 
-        REQUIRE(packet2.data[i] == data[i]);
+        data[size - 2] = 0x01;
+        data[size - 1] = 0x02;
+
+        unsigned char data2[size];
+
+        data2[size - 2] = 0x01;
+        data2[size - 1] = 0x02;
+
+        Packet packet(data, size);
+        Packet packet2(data2, size);
+
+        REQUIRE(Packet::packetsBetween(packet, packet2) == 0xFFFF);
+
+    }
+
+    SECTION("packetsBetween() is symmetric") {
+
+        unsigned char data[size];
+
+        data[size - 2] = 0x92;
+        data[size - 1] = 0x3A;
+
+        unsigned char data2[size];
+
+        data2[size - 2] = 0x46;
+        data2[size - 1] = 0xF3;
+
+        Packet packet(data, size);
+        Packet packet2(data2, size);
         
+        REQUIRE(
+            Packet::packetsBetween(packet, packet2) == 
+            Packet::packetsBetween(packet2, packet)
+        );
+
+    }
+
+    SECTION("packetsBetween() is correct across the overflow boundary") {
+
+        unsigned char data[size];
+
+        data[size - 2] = 0xFF;
+        data[size - 1] = 0xFF;
+
+        unsigned char data2[size];
+
+        data2[size - 2] = 0x00;
+        data2[size - 1] = 0x00;
+
+        Packet packet(data, size);
+        Packet packet2(data2, size);
+
+        REQUIRE(Packet::packetsBetween(packet, packet2) == 0);
+
+    }
+
+    SECTION("packetsBetween() is correct for extrema not crossing overflow boundary") {
+
+        unsigned char data[size];
+
+        data[size - 2] = 0x00;
+        data[size - 1] = 0x00;
+
+        unsigned char data2[size];
+
+        data2[size - 2] = 0xFF;
+        data2[size - 1] = 0xFF;
+
+        Packet packet(data, size);
+        Packet packet2(data2, size);
+
+        REQUIRE(Packet::packetsBetween(packet, packet2) == 0xFFFE);
+
+    }
+
+    SECTION("packetsBetween() is correct for smaller first packet") {
+
+        unsigned char data[size];
+
+        data[size - 2] = 0x12;
+        data[size - 1] = 0x53;
+
+        unsigned char data2[size];
+
+        data2[size - 2] = 0x55;
+        data2[size - 1] = 0x64;
+
+        Packet packet(data, size);
+        Packet packet2(data2, size);
+
+        REQUIRE(Packet::packetsBetween(packet, packet2) == 0x4310);
+
+    }
+
+    SECTION("packetsBetween() is correct for smaller second packet") {
+
+        unsigned char data[size];
+
+        data[size - 2] = 0x55;
+        data[size - 1] = 0x64;
+
+        unsigned char data2[size];
+
+        data2[size - 2] = 0x12;
+        data2[size - 1] = 0x53;
+
+        Packet packet(data, size);
+        Packet packet2(data2, size);
+
+        REQUIRE(Packet::packetsBetween(packet, packet2) == 0xBCEE);
+
     }
 
 }
 
-TEST_CASE("Packet -- copy assignment copies size", "[Packet]") {
+TEST_CASE("Packet::const_iterator", "[Packet]") {
 
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04};
-    DAQCap::Packet packet(data, 4);
+    SECTION("Packet::cbegin() refers to the correct byte") {
 
-    unsigned char data2[] = {0x05, 0x06, 0x07};
-    DAQCap::Packet packet2(data2, 3);
+        size_t packetSize = 10;
+        size_t size = PRELOAD_BYTES + POSTLOAD_BYTES + packetSize;
 
-    packet2 = packet;
+        unsigned char data[size];
+        for(int i = 0; i < PRELOAD_BYTES; ++i) {
+            data[i] = 0;
+        }
+        for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
+            data[i] = i - PRELOAD_BYTES + 1;
+        }
+        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+            data[i] = 0;
+        }
+        Packet packet(data, size);
 
-    REQUIRE(packet2.size == 4);
+        REQUIRE(*packet.cbegin() == data[PRELOAD_BYTES]);
 
-}
+    }
 
-TEST_CASE("Packet -- copy assignment returns new packet", "[Packet]") {
+    SECTION("Packet::cend() refers to the correct byte") {
 
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04};
-    DAQCap::Packet packet(data, 4);
+        size_t packetSize = 10;
+        size_t size = PRELOAD_BYTES + POSTLOAD_BYTES + packetSize;
 
-    unsigned char data2[] = {0x05, 0x06, 0x07};
-    DAQCap::Packet packet2(data2, 3);
+        unsigned char data[size];
+        for(int i = 0; i < PRELOAD_BYTES; ++i) {
+            data[i] = 0;
+        }
+        for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
+            data[i] = i - PRELOAD_BYTES + 1;
+        }
+        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+            data[i] = 0;
+        }
+        Packet packet(data, size);
 
-    REQUIRE(&packet2 == &(packet2 = packet));
+        REQUIRE(*(packet.cend() - 1) == data[size - POSTLOAD_BYTES - 1]);
 
-}
+    }
 
-TEST_CASE("Packet -- move constructor deletes old packet", "[Packet]") {
+    SECTION("Iterating over Packet gives correct values") {
 
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04};
-    DAQCap::Packet packet(data, 4);
+        size_t packetSize = 10;
+        size_t size = PRELOAD_BYTES + POSTLOAD_BYTES + packetSize;
 
-    DAQCap::Packet packet2(std::move(packet));
+        unsigned char data[size];
+        for(int i = 0; i < PRELOAD_BYTES; ++i) {
+            data[i] = 0;
+        }
+        for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
+            data[i] = i - PRELOAD_BYTES + 1;
+        }
+        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+            data[i] = 0;
+        }
+        Packet packet(data, size);
 
-    REQUIRE(packet.data == nullptr);
-    REQUIRE(packet.size == 0);
+        for(auto it = packet.cbegin(); it != packet.cend(); ++it) {
+            REQUIRE(*it == data[(it - packet.cbegin()) + PRELOAD_BYTES]);
+        }
 
-}
-
-TEST_CASE("Packet -- move constructor moves data", "[Packet]") {
-
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04};
-    DAQCap::Packet packet(data, 4);
-
-    DAQCap::Packet packet2(std::move(packet));
-
-    REQUIRE(packet2.data != nullptr);
-    REQUIRE(packet2.size == 4);
-
-    for (size_t i = 0; i < 4; i++) {
-
-        REQUIRE(packet2.data[i] == data[i]);
-        
     }
 
 }
 
-TEST_CASE("Packet -- move assignment deletes old packet", "[Packet]") {
+TEST_CASE("Packet::operator[]", "[Packet]") {
+    
+    SECTION("Packet::operator[] throws if the index is out of range") {
 
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04};
-    DAQCap::Packet packet(data, 4);
+        size_t packetSize = 10;
+        size_t size = PRELOAD_BYTES + POSTLOAD_BYTES + packetSize;
 
-    unsigned char data2[] = {0x05, 0x06, 0x07, 0x08};
-    DAQCap::Packet packet2(data2, 4);
+        unsigned char data[size];
+        for(int i = 0; i < PRELOAD_BYTES; ++i) {
+            data[i] = 0;
+        }
+        for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
+            data[i] = i - PRELOAD_BYTES + 1;
+        }
+        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+            data[i] = 0;
+        }
+        Packet packet(data, size);
 
-    packet2 = std::move(packet);
+        REQUIRE_THROWS_AS(packet[packetSize], std::out_of_range);
 
-    REQUIRE(packet.data == nullptr);
-    REQUIRE(packet.size == 0);
-
-}
-
-TEST_CASE("Packet -- move assignment moves data", "[Packet]") {
-
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04};
-    DAQCap::Packet packet(data, 4);
-
-    unsigned char data2[] = {0x05, 0x06, 0x07, 0x08};
-    DAQCap::Packet packet2(data2, 4);
-
-    packet2 = std::move(packet);
-
-    REQUIRE(packet2.data != nullptr);
-    REQUIRE(packet2.size == 4);
-
-    for (size_t i = 0; i < 4; i++) {
-
-        REQUIRE(packet2.data[i] == data[i]);
-        
     }
 
-}
+    SECTION("Packet::operator[] returns the correct byte") {
 
-TEST_CASE("Packet -- move assignment returns new packet", "[Packet]") {
+        size_t packetSize = 10;
+        size_t size = PRELOAD_BYTES + POSTLOAD_BYTES + packetSize;
 
-    unsigned char data[] = {0x01, 0x02, 0x03, 0x04};
-    DAQCap::Packet packet(data, 4);
+        unsigned char data[size];
+        for(int i = 0; i < PRELOAD_BYTES; ++i) {
+            data[i] = 0;
+        }
+        for(int i = PRELOAD_BYTES; i < PRELOAD_BYTES + packetSize; ++i) {
+            data[i] = i - PRELOAD_BYTES + 1;
+        }
+        for(int i = size; i --> size - POSTLOAD_BYTES; i) {
+            data[i] = 0;
+        }
+        Packet packet(data, size);
 
-    unsigned char data2[] = {0x05, 0x06, 0x07, 0x08};
-    DAQCap::Packet packet2(data2, 4);
+        for(int i = 0; i < packetSize; ++i) {
+            REQUIRE(packet[i] == data[i + PRELOAD_BYTES]);
+        }
 
-    REQUIRE(&packet2 == &(packet2 = std::move(packet)));
+    }
 
 }

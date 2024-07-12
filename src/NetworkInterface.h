@@ -35,7 +35,9 @@ namespace DAQCap {
     public:
 
         /**
-         * @brief Interrupts calls to listen().
+         * @brief Interrupts calls to listen(), causing them to abort
+         * execution and return. No effect if no calls to listen() are
+         * currently executing.
          */
         virtual void interrupt() = 0;
 
@@ -48,6 +50,11 @@ namespace DAQCap {
          * @param packetsToRead The number of packets to read. If packetsToRead
          * is -1, all packets in the current buffer are read. packetsToRead 
          * should not be zero or less than -1.
+         * 
+         * @return A vector of Packet objects containing the read packets. If
+         * interrupt() was called, the vector will be empty.
+         * 
+         * @throws std::runtime_error if an error occurred.
          */
         virtual std::vector<Packet> listen(int packetsToRead) = 0;
 

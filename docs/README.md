@@ -10,3 +10,7 @@ user.
 TODO: Note that this is made for phase2 data.
 
 TODO: Loosely based on code from Liang Guan (guanl@umich.edu).
+
+TODO: Note to developers what part of the code they need to work with to
+do what they want to do. E.g. new data formats mean working with Packet, 
+different network interfaces mean working with NetworkInterface

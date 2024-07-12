@@ -10,10 +10,16 @@
 #pragma once
 
 #include <vector>
+#include <stdexcept>
 
 #include <DAQCapDevice.h>
 
 // TODO: Documentation, especially throws
+
+// TODO: Idea -- we can use CMake to pass in a flag that indicates whether we
+//       have pcap. If we don't, we can use the flag to skip the include and
+//       stub the network interface, then flag the library as disabled via
+//       the public interface.
 
 namespace DAQCap {
 
@@ -21,6 +27,13 @@ namespace DAQCap {
 
     // TODO: A better way to do this
     const int NO_LIMIT = -1;
+
+    /**
+     * @brief Exception thrown to signal that a timeout occurred.
+     */
+    class timeout_exception : public std::runtime_error {
+        using std::runtime_error::runtime_error;
+    };
 
     /**
      * @brief Manages a session with a network device. 
@@ -45,8 +58,7 @@ namespace DAQCap {
         SessionHandler &operator=(const SessionHandler &other) = delete;
 
         /**
-         * @brief Interrupts calls to fetchPackets(). It is safe to call this
-         * method from a different thread.
+         * @brief Thread-safe method that interrupts calls to fetchPackets().
          */
         virtual void interrupt();
 
@@ -67,7 +79,10 @@ namespace DAQCap {
          * the current buffer will be read.
          * 
          * @return A DataBlob containing the packets together with their packet
-         * numbers.
+         * numbers. If interrupt() was called, the DataBlob will be empty.
+         * 
+         * @throws std::runtime_error if an error occurred.
+         * @throws interrupt_exception if the call was interrupted.
          */
         virtual DataBlob fetchPackets(
             int timeout = NO_LIMIT,      // milliseconds

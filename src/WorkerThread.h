@@ -53,14 +53,17 @@ namespace DAQThread {
          * @brief Removes any tasks that have not yet been started and notifies
          * the worker thread to terminate after the current task is finished.
          * 
-         * @param wait If true, the method will block until the worker thread
-         * has terminated.
-         * 
          * @note This method is called automatically by the destructor. The 
          * destructor will not wait for the worker thread to terminate.
          * @note If terminated has been called, assignTask() will have no effect.
          */
-        void terminate(bool wait = false);
+        void terminate();
+
+        /**
+         * @brief Waits for the worker thread to finish executing its current
+         * task and then joins the worker thread.
+         */
+        void join();
 
     private:
 
@@ -126,6 +129,11 @@ DAQThread::Worker<T>::Worker()
                 return tasks.size() > 0 || isTerminated; 
             });
 
+            if(isTerminated) {
+                lock.unlock();
+                break;
+            }
+
             // NOTE: We should know that tasks.size() > 0 thanks to the 
             //       condition we gave to cv.wait().
 
@@ -177,7 +185,7 @@ void DAQThread::Worker<T>::assignTask(T task, int priority) {
 }
 
 template<typename T>
-void DAQThread::Worker<T>::terminate(bool wait) {
+void DAQThread::Worker<T>::terminate() {
 
     std::unique_lock<std::mutex> lock(m);
 
@@ -194,10 +202,11 @@ void DAQThread::Worker<T>::terminate(bool wait) {
     // Ensure that the worker thread will notice that it's time to terminate
     cv.notify_all();
 
-    if(wait) {
+}
 
-        t.join();
+template<typename T>
+void DAQThread::Worker<T>::join() {
 
-    }
+    t.join();
 
 }

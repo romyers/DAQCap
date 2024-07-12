@@ -114,6 +114,12 @@ void PCap_Listener::interrupt() {
 
 std::vector<Packet> PCap_Listener::listen(int packetsToRead) {
 
+    // TODO: We could lock a mutex while we're messing with g_packetBuffer
+    //       and pcap_dispatch to make this thread-safe. I kinda prefer to keep
+    //       synchronization at the level where the threads are being created
+    //       though, in which case we can just let client code provide
+    //       its own synchronization if it needs it.
+
     g_packetBuffer.clear();
     int ret = pcap_dispatch(
         handler, 
@@ -126,15 +132,20 @@ std::vector<Packet> PCap_Listener::listen(int packetsToRead) {
 
         std::string errorMessage(pcap_geterr(handler));
 
-        // TODO: Error handling
+        throw std::runtime_error(
+            std::string("Error in pcap_dispatch: ") + errorMessage
+        );
 
     } else if(ret == -2) { // Packet fetching was interrupted
 
-        // TODO: Error handling
+        // NOTE: This is not an exceptional case. We just return an empty
+        //       vector of Packets and let the code that called interrupt()
+        //       worry about whether it needs special handling.
+        return std::vector<Packet>();
 
     } 
     
-    return g_packetBuffer;
+    return std::move(g_packetBuffer);
 
 }
 
@@ -193,7 +204,17 @@ void listen_callback(
 	const u_char *packet_data
 ) {
 
-    g_packetBuffer.emplace_back(packet_data, header->len);
+    try {
+
+        g_packetBuffer.emplace_back(packet_data, header->len);
+
+    } catch(const std::invalid_argument &e) {
+
+        // We don't want to throw exceptions from a callback function.
+        // We'll just ignore the malformed packet. Validation code should
+        // notice that we missed a packet.
+        
+    }
 
     delete[] useless;
     useless = nullptr;

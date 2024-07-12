@@ -11,6 +11,8 @@
 #include <iostream>
 #include <cstring>
 #include <fstream>
+#include <thread>
+#include <mutex>
 
 #include <sys/stat.h>
 
@@ -93,22 +95,109 @@ int main(int argc, char **argv) {
 
 	}
 
-	std::cout << "Saving packet data to: " << outputFile << std::endl;
+	std::cout << "Saving packet data to: " 
+              << outputFile 
+              << std::endl 
+              << std::endl;
 
     ///////////////////////////////////////////////////////////////////////////
     // Fetch packets and write to file
     ///////////////////////////////////////////////////////////////////////////
 
+    // TODO: Put data capture on a separate thread and do IO on the main thread
+
 	int packets   = 0;
 	int thousands = 0;
 
+    int consecutiveErrors = 0;
+
+    bool running = true;
+    std::mutex streamLock;
+
+    std::thread inputThread([&handler, &running, &streamLock]() {
+
+        std::string input;
+        while(running) {
+
+            std::cin >> input;
+            if(input == "q" || input == "quit" || input == "exit") {
+
+                running = false;
+                handler->interrupt();
+
+                break;
+
+            } else {
+
+                streamLock.lock();
+                std::cout << "Unrecognized input: " << input << std::endl;
+                std::cout << "Type 'q' or 'quit' to quit." << std::endl;
+                streamLock.unlock();
+
+            }
+
+        }
+
+    });
+
     // TODO: Stop condition and interrupt signal
-	while(true) {
+	while(running) {
 
-        DAQCap::DataBlob blob = handler->fetchPackets(1000);
+        // TODO: Provide a CL option for this
+        if(consecutiveErrors > 10) {
 
-        std::cout << "Cycle" << std::endl;
-        std::cout << blob.countPackets() << " packets fetched" << std::endl;
+            streamLock.lock();
+            std::cerr << "Too many consecutive errors. Aborting run." 
+                      << std::endl;
+            streamLock.unlock();
+
+            break;
+
+        }
+
+        DAQCap::DataBlob blob;
+        try {
+
+            blob = handler->fetchPackets(1000);
+
+        } catch(const DAQCap::timeout_exception &t) {
+
+            streamLock.lock();
+            std::cerr << "Timed out while waiting for packets." << std::endl;
+            streamLock.unlock();
+
+            continue;
+
+        } catch(const std::exception &e) {
+
+            streamLock.lock();
+            std::cerr << e.what() << std::endl;
+            streamLock.unlock();
+
+            ++consecutiveErrors;
+            continue; 
+
+        }
+
+        /*
+        std::vector<std::pair<int, int>> gaps = 
+            handler->getPacketNumberGaps(blob);
+
+        for(auto gap : gaps) {
+
+            // TODO: We leaked info about the packet format by having to
+            //       mod against 65536 here.
+            streamLock.lock();
+            std::cout << gap.second
+                      << " packets lost! Packet = "
+                      << (gap.first + gap.second) % 65536
+                      << ", Last = "
+                      << gap.first
+                      << std::endl;
+            streamLock.unlock();
+
+        }
+        */
 
 		fileWriter.write((char*)blob.data.data(), blob.data.size());
 		fileWriter.flush();
@@ -118,9 +207,14 @@ int main(int argc, char **argv) {
 		while(packets / 1000 > thousands) {
 
 			++thousands;
+
+            streamLock.lock();
 			std::cout << "Recorded " << thousands * 1000 << " packets";
+            streamLock.unlock();
 
 		}
+
+        consecutiveErrors = 0;
 
 	}
 
@@ -129,10 +223,15 @@ int main(int argc, char **argv) {
     ///////////////////////////////////////////////////////////////////////////
 
 	fileWriter.close();
+
+    streamLock.lock();
 	std::cout << std::endl << "Data capture finished!" << std::endl;
 	std::cout << packets << " packets recorded." << std::endl;
+    streamLock.unlock();
     
     delete handler;
+
+    inputThread.join();
 
     return 0;
 
