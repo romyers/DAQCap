@@ -32,7 +32,7 @@ TEST_CASE("DAQCap::SessionHandler", "[DAQCap]") {
 
     SECTION("fetchPacket() times out") {
 
-        REQUIRE_THROWS_AS(session.fetchPackets(5, 1), DAQCap::timeout_exception);
+        REQUIRE_THROWS_AS(session.fetchData(5, 1), DAQCap::timeout_exception);
 
     }
 
@@ -40,7 +40,7 @@ TEST_CASE("DAQCap::SessionHandler", "[DAQCap]") {
 
         session.interrupt();
 
-        DAQCap::DataBlob data = session.fetchPackets(1000, 30);
+        DAQCap::DataBlob data = session.fetchData(1000, 30);
 
         // The mock implementation of NetworkInterface just returns an empty
         // vector of packets if it's interrupted.
@@ -50,19 +50,19 @@ TEST_CASE("DAQCap::SessionHandler", "[DAQCap]") {
 
     SECTION("fetchPacket() returns correct packet count") {
 
-        DAQCap::DataBlob data = session.fetchPackets(1000, 30);
+        DAQCap::DataBlob data = session.fetchData(1000, 30);
 
         REQUIRE(data.packetCount == 30);
 
-        data = session.fetchPackets(1000, 500);
+        data = session.fetchData(1000, 500);
 
         REQUIRE(data.packetCount == 100);
 
     }
 
-    SECTION("fetchPackets() returns correct packets") {
+    SECTION("fetchData() returns correct packets") {
 
-        DAQCap::DataBlob data = session.fetchPackets(1000, 2);
+        DAQCap::DataBlob data = session.fetchData(1000, 2);
 
         for(int i = 0; i < 256; ++i) {
 

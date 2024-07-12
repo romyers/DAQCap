@@ -16,9 +16,27 @@ const int    PACKET_NUMBER_OVERFLOW = 65536;
 const size_t PRELOAD_BYTES          = 14   ;
 const size_t POSTLOAD_BYTES         = 4    ;
 
-size_t Packet::WORD_SIZE = 5;
+size_t Packet::wordSize() {
 
-std::vector<unsigned char> Packet::IDLE_WORD(WORD_SIZE, 0xFF);
+    return 5;
+
+}
+
+std::vector<unsigned char> Packet::idleWord() {
+
+    return std::vector<unsigned char>(Packet::wordSize(), 0xFF);
+
+}
+
+Packet::Packet() {
+
+    // Make sure everything stays well-defined.
+    data.resize(PRELOAD_BYTES + POSTLOAD_BYTES);
+
+    // A 0 ID denotes a null packet
+    ID = 0;
+
+}
         
 Packet::Packet(const unsigned char *raw_data, size_t size) {
 
@@ -34,10 +52,17 @@ Packet::Packet(const unsigned char *raw_data, size_t size) {
 
     data.insert(data.end(), raw_data, raw_data + size);
 
-    static unsigned long counter = 0;
+    // A 0 ID denotes a null packet, so real packets should start at 1
+    static unsigned long counter = 1;
 
     ID = counter;
     ++counter;
+
+}
+
+bool Packet::isNull() const {
+
+    return ID == 0;
 
 }
 

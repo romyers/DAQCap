@@ -9,5 +9,5 @@
 # https://book.hacktricks.xyz/linux-hardening/privilege-escalation/linux-capabilities
 # Also potentially a good read on cybersecurity
 
-add_executable(p2ecap p2ecap_standalone.cpp)
-target_link_libraries(p2ecap PRIVATE DAQCap)
+add_executable(ecap DAQCap_standalone.cpp)
+target_link_libraries(ecap PRIVATE DAQCap)

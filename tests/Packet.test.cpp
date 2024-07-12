@@ -371,7 +371,7 @@ TEST_CASE("Packet::operator[]", "[Packet]") {
 
 TEST_CASE("Packet::WORD_SIZE is correctly set", "[Packet]") {
 
-    REQUIRE(Packet::WORD_SIZE == WORD_SIZE);
+    REQUIRE(Packet::wordSize() == WORD_SIZE);
 
 }
 
@@ -379,6 +379,6 @@ TEST_CASE("Packet::IDLE_WORD is correctly set", "[Packet]") {
 
     std::vector<unsigned char> idleWord = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-    REQUIRE(Packet::IDLE_WORD == idleWord);
+    REQUIRE(Packet::idleWord() == idleWord);
 
 }

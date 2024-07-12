@@ -29,10 +29,12 @@ public:
     ~SessionHandler_impl();
 
     void interrupt();
-    DataBlob fetchPackets(int timeout, int packetsToRead);
+    DataBlob fetchData(
+        int timeout, 
+        int packetsToRead
+    );
 
-    void startDiscardingIdleWords();
-    void stopDiscardingIdleWords();
+    void setIncludeIdleWords(bool discard);
 
 private:
 
@@ -43,7 +45,9 @@ private:
     // Buffer for unfinished data words at the end of a packet
     std::deque<unsigned char> unfinishedWords;
 
-    bool isDiscardingIdleWords = true;
+    bool includingIdleWords = true;
+
+    Packet lastPacket;
 
 };
 
@@ -57,17 +61,16 @@ SessionHandler::SessionHandler_impl::SessionHandler_impl(
 
 }
 
-DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
-    int timeout,
+DataBlob SessionHandler::SessionHandler_impl::fetchData(
+    int timeout, 
     int packetsToRead
 ) {
 
-    // TODO: Extract timeout logic somewhere
     ///////////////////////////////////////////////////////////////////////////
-    // Listen for packets with timeout using C++ async tools
+    // Run a task that listens for packets
     ///////////////////////////////////////////////////////////////////////////
 
-    // Create a packaged_task out of the listen() call and get a future from it
+    // Create a packaged_task out of the listen() call
     std::packaged_task<std::vector<Packet>()> task([this, packetsToRead]() {
 
         return listener->listen(packetsToRead);
@@ -77,6 +80,11 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
 
     // Add the task to the worker thread
     workerThread.assignTask(std::move(task));
+
+    // TODO: Extract timeout logic somewhere
+    ///////////////////////////////////////////////////////////////////////////
+    // Wait and check if the task timed out
+    ///////////////////////////////////////////////////////////////////////////
 
     // If we hit the timeout, interrupt the listener and report the timeout
     if(
@@ -89,12 +97,14 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
         interrupt();
         future.wait();
 
-        throw timeout_exception("DAQCap::SessionHandler::fetchPackets() timed out.");
+        throw timeout_exception("DAQCap::SessionHandler::fetchData() timed out.");
 
     }
 
-    // Wait for the operation to finish and get the result
-    future.wait();
+    ///////////////////////////////////////////////////////////////////////////
+    // Get the result
+    ///////////////////////////////////////////////////////////////////////////
+
     std::vector<Packet> packets;
     try {
 
@@ -108,16 +118,73 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
 
     }
 
-    ///////////////////////////////////////////////////////////////////////////
-    // Pack the data into the blob
-    ///////////////////////////////////////////////////////////////////////////
-
     // TODO: Check packet numbers for continuity and report gaps
+    //         -- The troublesome part is figuring out how to emit the relevant
+    //            data to the user when there are gaps
 
     DataBlob blob;
 
+    blob.packetCount = packets.size();
+
     std::deque<unsigned char> data;
     std::swap(data, unfinishedWords);
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Check for lost packets
+    ///////////////////////////////////////////////////////////////////////////
+
+    // Check across the boundary between fetchData calls
+    if(!lastPacket.isNull()) {
+
+        int gap = Packet::packetsBetween(lastPacket, packets.front());
+
+        if(gap != 0) {
+
+            blob.warnings.push_back(
+                std::to_string(gap)
+                    + " packets lost! Packet = "
+                    + std::to_string(packets.front().getPacketNumber())
+                    + ", Last = "
+                    + std::to_string(lastPacket.getPacketNumber())
+            );
+
+        }
+
+    }
+    lastPacket = packets.back();
+
+    // Check within the packets fetched in this call
+    for(int i = 1; i < packets.size(); ++i) {
+
+        int gap = Packet::packetsBetween(packets[i - 1], packets[i]);
+
+        if(gap != 0) {
+
+            blob.warnings.push_back(
+                std::to_string(gap)
+                    + " packets lost! Packet = "
+                    + std::to_string(packets[i].getPacketNumber())
+                    + ", Last = "
+                    + std::to_string(packets[i - 1].getPacketNumber())
+            );
+
+        }
+
+    }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Pack the data into the output buffer
+    ///////////////////////////////////////////////////////////////////////////
+
+    for(int i = 0; i < packets.size(); ++i) {
+
+        data.insert(
+            data.end(),
+            packets[i].cbegin(),
+            packets[i].cend()
+        );
+
+    }
 
     for(const Packet &packet : packets) {
 
@@ -129,33 +196,30 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
 
     }
 
-    blob.packetCount = packets.size();
     blob.data.reserve(data.size());
-
-    while(data.size() >= Packet::WORD_SIZE) {
+    while(data.size() >= Packet::wordSize()) {
 
         if(
-            !isDiscardingIdleWords ||
+            includingIdleWords ||
+            Packet::idleWord().empty() || // If so, there is no idle word
             !std::equal(
                 data.cbegin(),
-                data.cbegin() + Packet::WORD_SIZE,
-                Packet::IDLE_WORD.cbegin()
+                data.cbegin() + Packet::wordSize(),
+                Packet::idleWord().cbegin()
             )
         ) {
 
             blob.data.insert(
                 blob.data.end(),
                 std::make_move_iterator(data.begin()),
-                std::make_move_iterator(data.begin() + Packet::WORD_SIZE)
+                std::make_move_iterator(data.begin() + Packet::wordSize())
             );
 
         }
 
         // TODO: Is it faster to just loop and pop_front? I think erase might
-        //       be linear even in this case.
-        // TODO: Or maybe it's better to push everything to the front instead
-        //       of the back and then erase from the back?
-        data.erase(data.begin(), data.begin() + Packet::WORD_SIZE);
+        //       be linear in data.size() even in this case.
+        data.erase(data.begin(), data.begin() + Packet::wordSize());
 
     }
 
@@ -175,7 +239,6 @@ DataBlob SessionHandler::SessionHandler_impl::fetchPackets(
     //            details together.
     //         -- Packet is a good place to put all this.
     //         -- The data format class should be pure virtual.
-    //         -- Perhaps we replace DataBlob with Packet.
     //         -- Maybe it makes sense to decode everything into signals
     //            right in the DAQCap module. But we still need to be able
     //            to write raw data files.
@@ -194,15 +257,9 @@ SessionHandler::SessionHandler_impl::~SessionHandler_impl() {
 
 }
 
-void SessionHandler::SessionHandler_impl::startDiscardingIdleWords() {
+void SessionHandler::SessionHandler_impl::setIncludeIdleWords(bool discard) {
 
-    isDiscardingIdleWords = true;
-
-}
-
-void SessionHandler::SessionHandler_impl::stopDiscardingIdleWords() {
-
-    isDiscardingIdleWords = false;
+    includingIdleWords = discard;
 
 }
 
@@ -242,20 +299,17 @@ void SessionHandler::interrupt() {
 
 }
 
-DataBlob SessionHandler::fetchPackets(int timeout, int packetsToRead) { 
+DataBlob SessionHandler::fetchData(
+    int timeout, 
+    int packetsToRead
+) { 
 
-    return impl->fetchPackets(timeout, packetsToRead); 
-
-}
-
-void SessionHandler::startDiscardingIdleWords() {
-
-    impl->startDiscardingIdleWords();
+    return impl->fetchData(timeout, packetsToRead);
 
 }
 
-void SessionHandler::stopDiscardingIdleWords() {
+void SessionHandler::setIncludeIdleWords(bool discard) {
 
-    impl->stopDiscardingIdleWords();
+    impl->setIncludeIdleWords(discard);
 
 }

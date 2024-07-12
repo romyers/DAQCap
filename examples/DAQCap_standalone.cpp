@@ -143,7 +143,7 @@ int main(int argc, char **argv) {
     // TODO: Stop condition and interrupt signal
 	while(running) {
 
-        // TODO: Provide a CL option for this
+        // TODO: Provide a CL option for the error threshold
         if(consecutiveErrors > 10) {
 
             streamLock.lock();
@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
         DAQCap::DataBlob blob;
         try {
 
-            blob = handler->fetchPackets(1000);
+            blob = handler->fetchData(1000);
 
         } catch(const DAQCap::timeout_exception &t) {
 
@@ -179,25 +179,13 @@ int main(int argc, char **argv) {
 
         }
 
-        /*
-        std::vector<std::pair<int, int>> gaps = 
-            handler->getPacketNumberGaps(blob);
+        for(const std::string &warning : blob.warnings) {
 
-        for(auto gap : gaps) {
-
-            // TODO: We leaked info about the packet format by having to
-            //       mod against 65536 here.
             streamLock.lock();
-            std::cout << gap.second
-                      << " packets lost! Packet = "
-                      << (gap.first + gap.second) % 65536
-                      << ", Last = "
-                      << gap.first
-                      << std::endl;
+            std::cerr << warning << std::endl;
             streamLock.unlock();
 
         }
-        */
 
 		fileWriter.write((char*)blob.data.data(), blob.data.size());
 		fileWriter.flush();

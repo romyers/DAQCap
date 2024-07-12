@@ -68,6 +68,10 @@ namespace DAQCap {
          */
         static Listener *create(const Device &device);
 
+    protected:
+
+        Listener() = default;
+
     };
 
 } // namespace DAQCap

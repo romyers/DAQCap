@@ -41,8 +41,8 @@ public:
     PCap_Listener(const PCap_Listener &other)            = delete;
     PCap_Listener &operator=(const PCap_Listener &other) = delete;
 
-    void interrupt();
-    std::vector<Packet> listen(int packetsToRead);
+    void interrupt() override;
+    std::vector<Packet> listen(int packetsToRead) override;
 
 private:
 

@@ -22,12 +22,31 @@ namespace DAQCap {
     //            belongs with signals. But we need to exclude idle words
     //            from DAT files.
 
+    // TODO: I think we will table vv for now. Save it for a time when this
+    //       needs to support other data formats
+    // TODO: Make Packet an abstract base class and use factory pattern with
+    //       data format
+    //         -- problem -- how do we override the static methods?
+    //              -- How about we say something like 
+    //                 Packet::wordSize(std::string format) and use it like
+    //                 Packet::wordSize(packet.getFormat())?
+    //         -- Another problem -- if packets need the data format to be
+    //            created, then the network interface needs to know the data
+    //            format. We don't want that.
+    //              -- Maybe use an intermediate struct full of raw data that
+    //                 we can turn into packets
+
     /**
      * @brief Represents a raw data packet. Abstracts data format details.
      */
     class Packet {
 
     public:
+
+        /**
+         * @brief Constructs a null packet with no data.
+         */
+        Packet();
 
         /**
          * @brief Constructor.
@@ -42,6 +61,13 @@ namespace DAQCap {
          * packet.
          */
         Packet(const unsigned char *raw_data, size_t size);
+
+        /**
+         * @brief Checks if this packet is a null packet.
+         * 
+         * @return True if this packet is null, false otherwise.
+         */
+        bool isNull() const;
 
         /**
          * @brief Returns the packet number associated with this packet.
@@ -99,17 +125,25 @@ namespace DAQCap {
         static int packetsBetween(const Packet &first, const Packet &second);
 
         /**
-         * @brief The size of data words contained in the packet, in bytes
+         * @brief Gets the size of data words contained in the packet, in
+         * bytes.
+         * 
+         * @return The size of data words contained in the packet, in bytes.
          */
-        static size_t WORD_SIZE;
+        static size_t wordSize();
 
         /**
-         * @brief The signature of an idle data word.
+         * @brief Returns the signature of an idle data word. If empty, then
+         * idle words do not exist.
+         * 
+         * @return The signature of an idle data word, or empty if there are no
+         * idle words.
          */
-        static std::vector<unsigned char> IDLE_WORD;
+        static std::vector<unsigned char> idleWord();
 
     private:
 
+        // TODO: This can go away once we make this an abstract base class
         std::vector<unsigned char> data;
 
         unsigned long ID;

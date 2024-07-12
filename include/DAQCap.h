@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <stdexcept>
+#include <string>
 
 #include <DAQCapDevice.h>
 
@@ -38,6 +39,12 @@ namespace DAQCap {
     /**
      * @brief Manages a session with a network device. 
      * 
+     * The SessionHandler class provides a high-level interface for fetching
+     * data from a network device. One SessionHandler should correspond to one
+     * data capture session on one network device. If you need to capture data
+     * from multiple devices, or in multiple sessions, you should create a
+     * separate SessionHandler for each device or session.
+     * 
      * @note This class is not thread-safe. Do not concurrently fetch packets
      * from two different threads, even if they are using different devices.
      */
@@ -58,48 +65,63 @@ namespace DAQCap {
         SessionHandler &operator=(const SessionHandler &other) = delete;
 
         /**
-         * @brief Thread-safe method that interrupts calls to fetchPackets().
+         * @brief Thread-safe method that interrupts calls to fetchData().
          */
         virtual void interrupt();
 
         /**
-         * @brief Waits for packets to arrive on the network device associated
-         * with this SessionHandler, then reads them into a DataBlob until
-         * packetsToRead packets have been read or all packets in the current
-         * buffer have been read, whichever comes first. Idle packets are
-         * excluded from the data blob's data vector, but included in the
-         * packetCount count.
+         * @brief Waits for and retrieves data from the network device
+         * associated with this SessionHandler.
          * 
-         * @param timeout The maximum time to wait for packets to arrive, in
-         * milliseconds. If timeout is NO_LIMIT, fetchPackets() will wait
-         * indefinitely for packets to arrive.
+         * Waits for data to arrive on the network device associated with this
+         * SessionHandler, then returns a DataBlob containing the data together
+         * with the packet count and any warnings that were generated.
+         * 
+         * If timeout is NO_LIMIT, fetchData() will wait indefinitely for
+         * data to arrive. Otherwise it will wait timeout milliseconds,
+         * and throw a timeout_exception if no data arrives in that time.
+         * 
+         * If packetsToRead is NO_LIMIT, fetchData() will read all data
+         * that arrives in the current buffer. Otherwise it will read 
+         * up to packetsToRead data packets at a time and leave any remaining
+         * data for the next call to fetchData().
+         * 
+         * If the SessionHandler is configured to exclude idle packets, idle
+         * packets are excluded from the data blob's data vector, but included
+         * in the packet count.
+         * 
+         * @note This function is not thread-safe. Do not call fetchData()
+         * concurrently from two different threads, even if they are using
+         * different devices.
+         * 
+         * @param timeout The maximum time to wait for data to arrive, in
+         * milliseconds. If timeout is NO_LIMIT, fetchData() will wait
+         * indefinitely for data to arrive.
          * 
          * @param packetsToRead The number of packets to read in this call to
-         * fetchPackets(). If packetsToRead is NO_LIMIT, all packets in
+         * fetchData(). If packetsToRead is NO_LIMIT, all packets in
          * the current buffer will be read.
          * 
-         * @return A DataBlob containing the packets together with their packet
-         * numbers. If interrupt() was called, the DataBlob will be empty.
+         * @return A DataBlob containing the data, packet count, and any 
+         * warnings that were generated.
          * 
-         * @throws std::runtime_error if an error occurred.
-         * @throws interrupt_exception if the call was interrupted.
+         * @throws std::runtime_error if an error occurred that prevented
+         * the function from reading data.
+         * @throws timeout_exception if data could not be fetched within
+         * timeout milliseconds.
          */
-        virtual DataBlob fetchPackets(
+        virtual DataBlob fetchData(
             int timeout = NO_LIMIT,      // milliseconds
             int packetsToRead = NO_LIMIT // packets
         );
 
         /**
-         * @brief Configures the SessionHandler to discard idle words when
-         * fetching packets. Idle words are discarded by default.
+         * @brief Sets whether the session handler should include idle words
+         * when fetching packets. False by default.
+         * 
+         * @param discard True to include idle words, false to ignore them.
          */
-        virtual void startDiscardingIdleWords();
-
-        /**
-         * @brief Configures the SessionHandler to include idle words when
-         * fetching packets. Idle words are discarded by default.
-         */
-        virtual void stopDiscardingIdleWords();
+        virtual void setIncludeIdleWords(bool discard);
 
         /**
          * @brief Gets a list of all network devices on the system.
@@ -110,7 +132,6 @@ namespace DAQCap {
 
         // TODO: Add functionality for:
         //         -- checking packet numbers
-        //         -- removing idle words
         // TODO: Testing. Part of this refactoring effort is to establish
         //       a unit test suite.
         // TODO: Go through the interface and make sure it's good.
@@ -125,19 +146,24 @@ namespace DAQCap {
     };
 
     /**
-     * @brief Represents data captured from a network device.
+     * @brief Represents a blob of data fetched from a network device.
      */
     struct DataBlob {
 
         /**
-         * @brief The data stored in this blob, stored as words of data.
+         * @brief The number of packets in the data blob.
+         */
+        int packetCount;
+
+        /**
+         * @brief The data fetched from the network device.
          */
         std::vector<unsigned char> data;
 
         /**
-         * @brief The number of packets stored in this blob.
+         * @brief Any warnings that were generated during the fetch.
          */
-        int packetCount = 0;
+        std::vector<std::string> warnings;
 
     };
 
