@@ -61,12 +61,20 @@ if(NOT PCAP_FOUND)
 
 endif()
 
+# TODO: Look at this for debug logging:
+#       https://www.reddit.com/r/cpp_questions/comments/obndlq/help_use_cmake_to_define_and_test_preprocessor/
+
+# TODO: Implement an option to not use pcap, and only do this if we have pcap
+set(PCAP_FOUND TRUE)
+
 # TODO: I want a clean way to swap out network interface implementations. So
 #       I'd like the DAQCap library not to include the pcap version, and link
 #       it to whatever implementation is relevant. So link to one
 #       implementation when compiling the tests, and another when compiling
 #       the examples or exposing the library to clients. I don't want clients
 #       to have to explicitly link the implementations.
+#       Look at this related to ^:
+#       https://discourse.cmake.org/t/get-a-cmake-macro-to-use-in-a-condition/7761/4
 
 # TODO: Make sure that both ways of including libpcap get linked to correctly
 
@@ -76,10 +84,13 @@ add_library(
     STATIC
     src/DAQCap.cpp 
     src/Packet.cpp
-    src/NetworkInterface_PCap.cpp
+    src/NetworkInterface.cpp
 )
 target_include_directories(DAQCap PUBLIC include)
-target_link_libraries(DAQCap PRIVATE ${PCAP_LIBRARY})
+if(PCAP_FOUND)
+    target_compile_definitions(DAQCap PRIVATE PCAP=1)
+    target_link_libraries(DAQCap PRIVATE ${PCAP_LIBRARY})
+endif()
 
 # Build examples
 if(BUILD_EXAMPLES)

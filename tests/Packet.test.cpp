@@ -9,6 +9,26 @@ const size_t PRELOAD_BYTES          = 14   ;
 const size_t POSTLOAD_BYTES         = 4    ;
 const size_t WORD_SIZE              = 5    ;
 
+// NOTE: This test case must be first, and no packets may be instantiated
+//       before it.
+TEST_CASE("First packet is not null", "[Packet]") {
+
+    unsigned char data[PRELOAD_BYTES + POSTLOAD_BYTES];
+
+    Packet packet(data, PRELOAD_BYTES + POSTLOAD_BYTES);
+
+    REQUIRE_FALSE(packet.isNull());
+
+}
+
+TEST_CASE("Default packet is null", "[Packet]") {
+
+    Packet packet;
+
+    REQUIRE(packet.isNull());
+
+}
+
 TEST_CASE("Packet constructor", "[Packet]") {
 
     SECTION("Packet constructor throws an exception if the size is too small") {

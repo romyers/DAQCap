@@ -2,6 +2,12 @@
 
 #include <DAQCap.h>
 
+TEST_CASE("FORCEFAIL") {
+
+    REQUIRE(false);
+
+}
+
 TEST_CASE("DAQCap::SessionHandler::getDeviceList calls internal", "[DAQCap]") {
 
     std::vector<DAQCap::Device> devices 

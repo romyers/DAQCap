@@ -15,6 +15,8 @@
 
 #include "Packet.h"
 
+// TODO: Find a way to test this
+
 namespace DAQCap {
 
     struct Packet;

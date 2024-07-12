@@ -111,7 +111,8 @@ namespace DAQCap {
 
         /**
          * @brief Returns the number of packets that should exist between
-         * two packets.
+         * two packets. The order in which packets were created is taken
+         * into account.
          * 
          * @note This function is symmetric. That is, for two packets
          * a and b, packetsBetween(a, b) == packetsBetween(b, a).

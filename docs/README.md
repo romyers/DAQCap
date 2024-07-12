@@ -14,3 +14,7 @@ TODO: Loosely based on code from Liang Guan (guanl@umich.edu).
 TODO: Note to developers what part of the code they need to work with to
 do what they want to do. E.g. new data formats mean working with Packet, 
 different network interfaces mean working with NetworkInterface
+  - This goes in a 'Developer Notes' markdown that is only included if
+    internal documentation is built.
+
+TODO: Note to developers that they can make internal documentation
