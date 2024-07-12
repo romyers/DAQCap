@@ -124,8 +124,6 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
 
     DataBlob blob;
 
-    blob.packetCount = packets.size();
-
     std::deque<unsigned char> data;
     std::swap(data, unfinishedWords);
 
@@ -173,18 +171,10 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    // Pack the data into the output buffer
+    // Pack the data into the blob
     ///////////////////////////////////////////////////////////////////////////
 
-    for(int i = 0; i < packets.size(); ++i) {
-
-        data.insert(
-            data.end(),
-            packets[i].cbegin(),
-            packets[i].cend()
-        );
-
-    }
+    blob.packetCount = packets.size();
 
     for(const Packet &packet : packets) {
 
