@@ -11,30 +11,9 @@
 
 #include <cstddef>
 #include <vector>
+#include <stdint.h>
 
 namespace DAQCap {
-
-    // TODO: Packet will hide data format details
-
-    // TODO: Decide where to do idle word checking.
-    //         -- I'd like everything to do with the miniDAQ data format to 
-    //            be in one place. That's packets and signals. Word size
-    //            belongs with signals. But we need to exclude idle words
-    //            from DAT files.
-
-    // TODO: I think we will table vv for now. Save it for a time when this
-    //       needs to support other data formats
-    // TODO: Make Packet an abstract base class and use factory pattern with
-    //       data format
-    //         -- problem -- how do we override the static methods?
-    //              -- How about we say something like 
-    //                 Packet::wordSize(std::string format) and use it like
-    //                 Packet::wordSize(packet.getFormat())?
-    //         -- Another problem -- if packets need the data format to be
-    //            created, then the network interface needs to know the data
-    //            format. We don't want that.
-    //              -- Maybe use an intermediate struct full of raw data that
-    //                 we can turn into packets
 
     /**
      * @brief Represents a raw data packet. Abstracts data format details.
@@ -52,7 +31,7 @@ namespace DAQCap {
          * @brief Constructs a packet from the given data.
          * 
          * @param raw_data A pointer to the raw packet data, stored as an array
-         * of unsigned chars. Packet does not need the data pointer to persist
+         * of uint8_ts. Packet does not need the data pointer to persist
          * after construction.
          * 
          * @param size The size of the raw packet data array.
@@ -60,14 +39,7 @@ namespace DAQCap {
          * @throws std::invalid_argument If size is too small to represent a
          * packet.
          */
-        Packet(const unsigned char *raw_data, size_t size);
-
-        /**
-         * @brief Checks if this packet is a null packet.
-         * 
-         * @return True if this packet is null, false otherwise.
-         */
-        bool isNull() const;
+        Packet(const uint8_t *raw_data, size_t size);
 
         /**
          * @brief Returns the packet number associated with this packet.
@@ -84,7 +56,7 @@ namespace DAQCap {
         /**
          * @brief An iterator used to traverse the data portion of the packet.
          */
-        typedef std::vector<unsigned char>::const_iterator const_iterator;
+        typedef std::vector<uint8_t>::const_iterator const_iterator;
 
         /**
          * @brief Returns a const iterator to the beginning of the data portion
@@ -109,7 +81,7 @@ namespace DAQCap {
          * @throws std::out_of_range If index is greater than or equal to the
          * size of the data portion of the packet.
          */
-        unsigned char operator[](size_t index) const;
+        uint8_t operator[](size_t index) const;
 
         /**
          * @brief Returns the number of packets that should exist between
@@ -142,13 +114,19 @@ namespace DAQCap {
          * @return The signature of an idle data word, or empty if there are no
          * idle words.
          */
-        static std::vector<unsigned char> idleWord();
+        static std::vector<uint8_t> idleWord();
+
+        /**
+         * @brief Converts the packet to a boolean value. Returns true if the
+         * packet is not null, and false otherwise.
+         */
+        explicit operator bool() const;
 
     private:
 
         int packetNumber;
 
-        std::vector<unsigned char> data;
+        std::vector<uint8_t> data;
 
         unsigned long ID;
 

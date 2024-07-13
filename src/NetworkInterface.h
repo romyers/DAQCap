@@ -15,16 +15,17 @@
 
 #include "Packet.h"
 
-// TODO: Find a way to test this
-
 namespace DAQCap {
 
     struct Packet;
 
     /**
      * @brief Gets a list of all network devices on the system.
+     * If no devices could be found, returns an empty vector.
      * 
      * @return A vector of populated Device objects.
+     * 
+     * @throws std::runtime_error if an error occurred.
      */
     std::vector<Device> getDevices();
 
@@ -42,6 +43,8 @@ namespace DAQCap {
          * @brief Interrupts calls to listen(), causing them to abort
          * execution and return. No effect if no calls to listen() are
          * currently executing.
+         * 
+         * @note This function is thread-safe.
          */
         virtual void interrupt() = 0;
 
@@ -50,6 +53,8 @@ namespace DAQCap {
          * with this Listener, then reads them into a vector of Packet objects
          * until packetsToRead packets have been read or the current buffer
          * is exhausted.
+         * 
+         * @note This function is not necessarily threadsafe.
          * 
          * @param packetsToRead The number of packets to read. If packetsToRead
          * is -1, all packets in the current buffer are read. packetsToRead 
@@ -67,7 +72,8 @@ namespace DAQCap {
          * 
          * @param device The device to listen on.
          * 
-         * @throws std::runtime_error if the device does not exist or could not
+         * @throws std::invalid_argument if the device does not exist.
+         * @throws std::runtime_error if the device could not
          * be initialized.
          */
         static Listener *create(const Device &device);

@@ -17,7 +17,7 @@ TEST_CASE("First packet is not null", "[Packet]") {
 
     Packet packet(data, PRELOAD_BYTES + POSTLOAD_BYTES);
 
-    REQUIRE_FALSE(packet.isNull());
+    REQUIRE(packet);
 
 }
 
@@ -25,7 +25,7 @@ TEST_CASE("Default packet is null", "[Packet]") {
 
     Packet packet;
 
-    REQUIRE(packet.isNull());
+    REQUIRE(!packet);
 
 }
 

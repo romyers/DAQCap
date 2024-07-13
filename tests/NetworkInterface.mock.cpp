@@ -68,7 +68,7 @@ std::vector<Packet> MockListener::listen(int packetsToRead) {
 
         int size = 14 + 256 + 4;
 
-        unsigned char *data = new unsigned char[size];
+        uint8_t *data = new uint8_t[size];
 
         for(int j = 0; j < 14; ++j) {
 

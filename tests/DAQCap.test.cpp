@@ -11,10 +11,10 @@ TEST_CASE("FORCEFAIL") {
 // TODO: Benchmarking using Catch2's benchmark macro
 // TODO: Mocking framework
 
-TEST_CASE("DAQCap::SessionHandler::getDeviceList calls internal", "[DAQCap]") {
+TEST_CASE("DAQCap::SessionHandler::getNetworkDevices calls internal", "[DAQCap]") {
 
     std::vector<DAQCap::Device> devices 
-        = DAQCap::SessionHandler::getDeviceList();
+        = DAQCap::SessionHandler::getNetworkDevices();
 
     REQUIRE(devices.size() == 2);
 
@@ -41,7 +41,10 @@ TEST_CASE("DAQCap::SessionHandler", "[DAQCap]") {
 
     SECTION("fetchPacket() times out") {
 
-        REQUIRE_THROWS_AS(session.fetchData(5, 1), DAQCap::timeout_exception);
+        REQUIRE_THROWS_AS(
+            session.fetchData(std::chrono::milliseconds(5), 1), 
+            DAQCap::timeout_exception
+        );
 
     }
 
@@ -49,7 +52,7 @@ TEST_CASE("DAQCap::SessionHandler", "[DAQCap]") {
 
         session.interrupt();
 
-        DAQCap::DataBlob data = session.fetchData(1000, 30);
+        DAQCap::DataBlob data = session.fetchData(std::chrono::seconds(1), 30);
 
         // The mock implementation of NetworkInterface just returns an empty
         // vector of packets if it's interrupted.
@@ -59,11 +62,11 @@ TEST_CASE("DAQCap::SessionHandler", "[DAQCap]") {
 
     SECTION("fetchPacket() returns correct packet count") {
 
-        DAQCap::DataBlob data = session.fetchData(1000, 30);
+        DAQCap::DataBlob data = session.fetchData(std::chrono::seconds(1), 30);
 
         REQUIRE(data.packetCount == 30);
 
-        data = session.fetchData(1000, 500);
+        data = session.fetchData(std::chrono::seconds(1), 500);
 
         REQUIRE(data.packetCount == 100);
 
@@ -71,7 +74,7 @@ TEST_CASE("DAQCap::SessionHandler", "[DAQCap]") {
 
     SECTION("fetchData() returns correct packets") {
 
-        DAQCap::DataBlob data = session.fetchData(1000, 2);
+        DAQCap::DataBlob data = session.fetchData(std::chrono::seconds(1), 2);
 
         for(int i = 0; i < 256; ++i) {
 

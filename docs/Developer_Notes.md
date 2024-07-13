@@ -14,6 +14,9 @@ different network interfaces mean working with NetworkInterface
         NetworkInterface.cpp
       - Implement NetworkInterface.h inside the #elifdef
       - Implement NetworkInterface::Create() inside the #elifdef
+      - Work will need to be done to make sure that necessary info gets from
+        getDeviceList() to Listener::create(). Probably rewrite Device to be
+        an abstract base class.
 
 # TODO: Does NetworkInterface actually need to be abstract if the interface
 #       implementation is set at compile time?

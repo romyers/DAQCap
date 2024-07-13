@@ -12,6 +12,7 @@
 #include <vector>
 #include <stdexcept>
 #include <string>
+#include <chrono>
 
 #include <DAQCapDevice.h>
 
@@ -27,7 +28,9 @@ namespace DAQCap {
     struct DataBlob;
 
     // TODO: A better way to do this
-    const int NO_LIMIT = -1;
+    // TODO: With C++17, use std::optional
+    const int ALL_PACKETS = -1;
+    const std::chrono::milliseconds FOREVER(-1);
 
     /**
      * @brief Exception thrown to signal that a timeout occurred.
@@ -77,11 +80,11 @@ namespace DAQCap {
          * SessionHandler, then returns a DataBlob containing the data together
          * with the packet count and any warnings that were generated.
          * 
-         * If timeout is NO_LIMIT, fetchData() will wait indefinitely for
+         * If timeout is FOREVER, fetchData() will wait indefinitely for
          * data to arrive. Otherwise it will wait timeout milliseconds,
          * and throw a timeout_exception if no data arrives in that time.
          * 
-         * If packetsToRead is NO_LIMIT, fetchData() will read all data
+         * If packetsToRead is ALL_PACKETS, fetchData() will read all data
          * that arrives in the current buffer. Otherwise it will read 
          * up to packetsToRead data packets at a time and leave any remaining
          * data for the next call to fetchData().
@@ -95,11 +98,11 @@ namespace DAQCap {
          * different devices.
          * 
          * @param timeout The maximum time to wait for data to arrive, in
-         * milliseconds. If timeout is NO_LIMIT, fetchData() will wait
+         * milliseconds. If timeout is FOREVER, fetchData() will wait
          * indefinitely for data to arrive.
          * 
          * @param packetsToRead The number of packets to read in this call to
-         * fetchData(). If packetsToRead is NO_LIMIT, all packets in
+         * fetchData(). If packetsToRead is ALL_PACKETS, all packets in
          * the current buffer will be read.
          * 
          * @return A DataBlob containing the data, packet count, and any 
@@ -111,8 +114,8 @@ namespace DAQCap {
          * timeout milliseconds.
          */
         virtual DataBlob fetchData(
-            int timeout = NO_LIMIT,      // milliseconds
-            int packetsToRead = NO_LIMIT // packets
+            std::chrono::milliseconds timeout = FOREVER,
+            int packetsToRead = ALL_PACKETS
         );
 
         /**
@@ -124,18 +127,21 @@ namespace DAQCap {
         virtual void setIncludeIdleWords(bool discard);
 
         /**
-         * @brief Gets a list of all network devices on the system.
+         * @brief Gets a list of all network devices on the system. If no
+         * devices could be found, returns an empty vector.
          * 
          * @return A vector of Device objects.
+         * 
+         * @throws std::runtime_error if an error occurred.
          */
-        static std::vector<Device> getDeviceList();
+        static std::vector<Device> getNetworkDevices();
 
-        // TODO: Fix segfault when interrupting a session handler
         // TODO: Testing. Part of this refactoring effort is to establish
         //       a unit test suite.
         // TODO: Go through the interface and make sure it's good.
         // TODO: Make sure everything works on different operating systems. The
         //       example program will need portable file management
+        // TODO: Make sure the interface is obvious
 
     private:
 
@@ -144,6 +150,7 @@ namespace DAQCap {
 
     };
 
+    // TODO: Prevent external instantiation
     /**
      * @brief Represents a blob of data fetched from a network device.
      */
@@ -157,12 +164,17 @@ namespace DAQCap {
         /**
          * @brief The data fetched from the network device.
          */
-        std::vector<unsigned char> data;
+        std::vector<uint8_t> data;
 
         /**
          * @brief Any warnings that were generated during the fetch.
          */
         std::vector<std::string> warnings;
+
+        /**
+         * @brief Packs the data blob into a vector of 64-bit integers.
+         */
+        std::vector<uint64_t> pack();
 
     };
 

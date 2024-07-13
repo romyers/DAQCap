@@ -18,6 +18,9 @@ using namespace DAQCap;
     // This is why two threads can't fetch packets from two different devices 
     // at the same time. Note that even without this, two threads would not be
     // able to fetch packets from the same device at the same time.
+    // NOTE: The packet buffer is left in a broken state between calls to
+    //       listen(). It is the responsibility of the caller to clear the
+    //       buffer before using it.
     std::vector<Packet> g_packetBuffer;
 
     // Stores the packet data in g_packetBuffer. This function is passed as a 
@@ -30,9 +33,6 @@ using namespace DAQCap;
 
     // TODO: For testing, write an implementation that reads a pcap save file:
     //       https://www.tcpdump.org/manpages/pcap_open_offline.3pcap.html
-
-    // TODO: Better to use a flag from cmake indicating whether pcap exists and
-    //       macros to skip the PCap_Listener class if it doesn't.
 
     // A concrete class we'll be returning as a Listener* from the factory 
     // function
@@ -55,7 +55,19 @@ using namespace DAQCap;
 
     };
 
+    ///////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////
+
     PCap_Listener::PCap_Listener(const Device &device) {
+
+        if(!device) {
+
+            throw std::invalid_argument(
+                "Listener cannot open an empty device."
+            );
+
+        }
 
         char errorBuffer[PCAP_ERRBUF_SIZE];
 
@@ -134,12 +146,6 @@ using namespace DAQCap;
 
     std::vector<Packet> PCap_Listener::listen(int packetsToRead) {
 
-        // TODO: We could lock a mutex while we're messing with g_packetBuffer
-        //       and pcap_dispatch to make this thread-safe. I kinda prefer to
-        //       keep synchronization at the level where the threads are being
-        //       created though, in which case we can just let client code 
-        //       provide its own synchronization if it needs it.
-
         g_packetBuffer.clear();
         int ret = pcap_dispatch(
             handler, 
@@ -189,9 +195,7 @@ using namespace DAQCap;
 
         if(deviceHandle == nullptr) {
 
-            throw std::runtime_error(
-                "No network devices found. Check your permissions."
-            );
+            return std::vector<Device>();
 
         }
 
@@ -247,14 +251,32 @@ using namespace DAQCap;
 
     }
 
-    Listener *Listener::create(const Device &device) {
+#endif
 
-        return new PCap_Listener(device);
+// #ifdef([ANOTHER_NETWORK_LIBRARY])
+
+    // Implementation
+
+// #endif
+
+// TODO: If another network library is added, offer a way to choose between
+//       two existing libraries.
+Listener *Listener::create(const Device &device) {
+
+    if(!device) {
+
+        throw std::invalid_argument(
+            "Listener cannot open an empty device."
+        );
 
     }
 
-#else
+    #ifdef PCAP
+        return new PCap_Listener(device);
+    #endif
 
-    #error "No network interface implementation available."
+    throw std::runtime_error(
+        "No network library is available to create a Listener."
+    );
 
-#endif
+}

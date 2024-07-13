@@ -5,10 +5,10 @@
 #include <cstring>
 #include <string>
 #include <future>
-#include <deque>
+#include <vector>
+#include <cassert>
 
 #include "NetworkInterface.h"
-#include "WorkerThread.h"
 
 #include <pcap.h>
 
@@ -28,7 +28,7 @@ public:
 
     void interrupt();
     DataBlob fetchData(
-        int timeout, 
+        std::chrono::milliseconds timeout, 
         int packetsToRead
     );
 
@@ -38,10 +38,8 @@ private:
 
     Listener *listener;
 
-    DAQThread::Worker<std::packaged_task<std::vector<Packet>()>> workerThread;
-
     // Buffer for unfinished data words at the end of a packet
-    std::deque<unsigned char> unfinishedWords;
+    std::vector<uint8_t> unfinishedWords;
 
     bool includingIdleWords = true;
 
@@ -63,11 +61,11 @@ SessionHandler::SessionHandler_impl::SessionHandler_impl(
 
 
 DataBlob SessionHandler::fetchData(
-    int timeout, 
+    std::chrono::milliseconds timeout, 
     int packetsToRead
 ) { return impl->fetchData(timeout, packetsToRead);}
 DataBlob SessionHandler::SessionHandler_impl::fetchData(
-    int timeout, 
+    std::chrono::milliseconds timeout, 
     int packetsToRead
 ) {
 
@@ -75,34 +73,39 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
     // Run a task that listens for packets
     ///////////////////////////////////////////////////////////////////////////
 
-    // Create a packaged_task out of the listen() call
-    std::packaged_task<std::vector<Packet>()> task([this, packetsToRead]() {
+    // NOTE: This will create a new thread every time. Should optimization be
+    //       necessary, we can use a packaged_task and assign it to a 
+    //       persistent worker thread instead.
+    auto future = std::async(
+        std::launch::async, 
+        [this, packetsToRead]() {
 
-        return listener->listen(packetsToRead);
+            return listener->listen(packetsToRead);
 
-    });
-    std::future<std::vector<Packet>> future = task.get_future();
+        }
+    );
 
-    // Add the task to the worker thread
-    workerThread.assignTask(std::move(task));
-
-    // TODO: Extract timeout logic somewhere
     ///////////////////////////////////////////////////////////////////////////
     // Wait and check if the task timed out
     ///////////////////////////////////////////////////////////////////////////
 
     // If we hit the timeout, interrupt the listener and report the timeout
     if(
-        timeout != NO_LIMIT &&
+        timeout != FOREVER &&
         future.wait_for(
-            std::chrono::milliseconds(timeout)
+            timeout
         ) == std::future_status::timeout
     ) {
 
+        // This will force the listener to return early
         interrupt();
-        future.wait();
 
-        throw timeout_exception("DAQCap::SessionHandler::fetchData() timed out.");
+        throw timeout_exception(
+            "DAQCap::SessionHandler::fetchData() timed out."
+        );
+
+        // NOTE: Future will block until completion when it goes out of scope,
+        //       so we don't need to explicitly wait for it
 
     }
 
@@ -131,15 +134,12 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
 
     DataBlob blob;
 
-    std::deque<unsigned char> data;
-    std::swap(data, unfinishedWords);
-
     ///////////////////////////////////////////////////////////////////////////
     // Check for lost packets
     ///////////////////////////////////////////////////////////////////////////
 
     // Check across the boundary between fetchData calls
-    if(!lastPacket.isNull()) {
+    if(lastPacket) {
 
         int gap = Packet::packetsBetween(lastPacket, packets.front());
 
@@ -183,6 +183,17 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
 
     blob.packetCount = packets.size();
 
+    std::vector<uint8_t> data;
+    std::swap(data, unfinishedWords);
+
+    // TODO: Optimization -- if we're careful about idle word checking, we can
+    //       move directly from packet data to blob.data and avoid the extra
+    //       move into data.
+
+    // This likely won't hold everything, but it will eliminate some extraneous
+    // reallocations.
+    data.reserve(packets.size() * Packet::wordSize());
+
     for(const Packet &packet : packets) {
 
         data.insert(
@@ -193,34 +204,42 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
 
     }
 
+    // TODO: Test very carefully that this loop terminates in the right place
+    //       and leaves iter where it needs to be for the following insert call
     blob.data.reserve(data.size());
-    while(data.size() >= Packet::wordSize()) {
+    auto iter = data.begin();
+    for(
+        ;
+        iter != data.end() - data.size() % Packet::wordSize();
+        iter += Packet::wordSize()
+    ) {
 
+        // TODO: Test idle word removal
         if(
             includingIdleWords ||
             Packet::idleWord().empty() || // If so, there is no idle word
             !std::equal(
-                data.cbegin(),
-                data.cbegin() + Packet::wordSize(),
+                iter,
+                iter + Packet::wordSize(),
                 Packet::idleWord().cbegin()
             )
         ) {
 
             blob.data.insert(
                 blob.data.end(),
-                std::make_move_iterator(data.begin()),
-                std::make_move_iterator(data.begin() + Packet::wordSize())
+                std::make_move_iterator(iter),
+                std::make_move_iterator(iter + Packet::wordSize())
             );
 
         }
 
-        // TODO: Is it faster to just loop and pop_front? I think erase might
-        //       be linear in data.size() even in this case.
-        data.erase(data.begin(), data.begin() + Packet::wordSize());
-
     }
 
-    std::swap(unfinishedWords, data);
+    unfinishedWords.insert(
+        unfinishedWords.end(),
+        std::make_move_iterator(iter),
+        std::make_move_iterator(data.end())
+    );
 
     return blob;
 
@@ -248,10 +267,6 @@ SessionHandler::SessionHandler_impl::~SessionHandler_impl() {
 
     listener->interrupt();
 
-    workerThread.terminate();
-
-    workerThread.join();
-
     if(listener) delete listener;
     listener = nullptr;
 
@@ -275,11 +290,58 @@ void SessionHandler::SessionHandler_impl::interrupt() {
 
 }
 
+std::vector<uint64_t> DataBlob::pack() {
+
+    // The blob should not contain partial words
+    assert(data.size() % Packet::wordSize() == 0);
+
+    std::vector<uint64_t> packedData;
+    packedData.reserve(data.size() / Packet::wordSize());
+    
+    // TODO: Test this
+    //         -- Make sure the right bytes are in the right places
+    //         -- Make sure we don't cut the last word off the end
+    //         -- Look for more efficient ways to do this
+    //              -- Only way I can think of is to memcpy then fix
+    //                 endianness if there's a mismatch
+    //         -- Make sure the endianness is correct -- check old
+    //            code to verify this
+    //         -- The decoder will need to pack raw data into words
+    //            too. It might not be good to bury this in the
+    //            DAQCap library
+    //              -- We could consider merging the decode and
+    //                 capture libraries though, creating a unified,
+    //                 but modular library so that user can strip
+    //                 out e.g. ethernet capture if they don't need it.
+
+    // TODO: Faster ways to do this while staying agnostic to system
+    //       endianness?
+    for(
+        size_t wordStart = 0; 
+        wordStart < data.size(); 
+        wordStart += Packet::wordSize()
+    ) {
+
+        int word = 0;
+        
+        for(size_t byte = 0; byte < Packet::wordSize(); ++byte) {
+
+            wordStart |= data[wordStart + byte] << (8 * byte);
+
+        }
+
+
+    }
+
+    return packedData;
+
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 
-std::vector<Device> SessionHandler::getDeviceList() {
+std::vector<Device> SessionHandler::getNetworkDevices() {
 
     return getDevices();
 

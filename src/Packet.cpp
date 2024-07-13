@@ -22,9 +22,9 @@ size_t Packet::wordSize() {
 
 }
 
-std::vector<unsigned char> Packet::idleWord() {
+std::vector<uint8_t> Packet::idleWord() {
 
-    return std::vector<unsigned char>(Packet::wordSize(), 0xFF);
+    return std::vector<uint8_t>(Packet::wordSize(), 0xFF);
 
 }
 
@@ -35,7 +35,7 @@ Packet::Packet() : packetNumber(0) {
 
 }
         
-Packet::Packet(const unsigned char *raw_data, size_t size) : packetNumber(0) {
+Packet::Packet(const uint8_t *raw_data, size_t size) : packetNumber(0) {
 
     if(size < PRELOAD_BYTES + POSTLOAD_BYTES) {
 
@@ -68,9 +68,10 @@ Packet::Packet(const unsigned char *raw_data, size_t size) : packetNumber(0) {
 
 }
 
-bool Packet::isNull() const {
 
-    return ID == 0;
+Packet::operator bool() const {
+
+    return ID != 0;
 
 }
 
@@ -79,8 +80,6 @@ int Packet::getPacketNumber() const {
     return packetNumber;
 
 }
-
-// TODO: Definitely need to test these iterators
 
 Packet::const_iterator Packet::cbegin() const { 
     return data.cbegin(); 
@@ -123,11 +122,17 @@ int Packet::packetsBetween(const Packet &first, const Packet &second) {
 
 size_t Packet::size() const { 
 
+    // NOTE: We use iterator arithmetic to easily swap to implementations that
+    //       e.g. use a different container for the data or store metadata with
+    //       the data. An older implementation of Packet stored the preload and
+    //       postload bytes with the data, and implemented cbegin() and cend()
+    //       to point to the begginning and end of the data portion.
+
     return cend() - cbegin();
 
 }
 
-unsigned char Packet::operator[](size_t index) const {
+uint8_t Packet::operator[](size_t index) const {
 
     if(index >= size()) {
 
