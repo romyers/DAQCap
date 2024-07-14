@@ -9,26 +9,16 @@
 
 #pragma once
 
+#include <DAQCapDevice.h>
+#include <DAQBlob.h>
+
 #include <vector>
 #include <stdexcept>
 #include <string>
 #include <chrono>
 
-#include <DAQCapDevice.h>
-
-// TODO: Documentation, especially throws
-
-// TODO: Idea -- we can use CMake to pass in a flag that indicates whether we
-//       have pcap. If we don't, we can use the flag to skip the include and
-//       stub the network interface, then flag the library as disabled via
-//       the public interface.
-
 namespace DAQCap {
 
-    struct DataBlob;
-
-    // TODO: A better way to do this
-    // TODO: With C++17, use std::optional
     const int ALL_PACKETS = -1;
     const std::chrono::milliseconds FOREVER(-1);
 
@@ -56,16 +46,51 @@ namespace DAQCap {
     public:
 
         /**
-         * @brief Constructs a SessionHandler object for the given device.
-         * 
-         * @throws std::runtime_error if the device does not exist or could not
-         * be initialized.
+         * @brief Constructs a SessionHandler objec.
          */
-        SessionHandler(const Device &device);
+        SessionHandler();
         virtual ~SessionHandler();
 
         SessionHandler(const SessionHandler &other)            = delete;
         SessionHandler &operator=(const SessionHandler &other) = delete;
+
+        /**
+         * @brief Gets a network device by name.
+         * 
+         * @param name The name of the device to get.
+         * 
+         * @return The Device object with the specified name, or a null
+         * device if an error occurred or the device could not be found.
+         */
+        Device getNetworkDevice(const std::string &name);
+
+        /**
+         * @brief Gets a list of all network devices on the system. If no
+         * devices could be found, returns an empty vector.
+         * 
+         * @return A vector of Device objects.
+         * 
+         * @throws std::runtime_error if an error occurred.
+         */
+        std::vector<Device> getAllNetworkDevices();
+
+        /**
+         * @brief Begins a capture session on the specified device, and prepares
+         * the SessionHandler to fetch data from it.
+         * 
+         * @note Calling startSession() on a SessionHandler that is already
+         * in the middle of a session will close the current session and start
+         * a new one.
+         * 
+         * @throws std::runtime_error if the device does not exist or could not
+         * be initialized.
+         */
+        void startSession(const Device &device);
+
+        /**
+         * @brief Ends a capture session on the current device.
+         */
+        void endSession();
 
         /**
          * @brief Thread-safe method that interrupts calls to fetchData().
@@ -93,6 +118,9 @@ namespace DAQCap {
          * packets are excluded from the data blob's data vector, but included
          * in the packet count.
          * 
+         * @note A session must have been started with startSession() before
+         * calling fetchData().
+         * 
          * @note This function is not thread-safe. Do not call fetchData()
          * concurrently from two different threads, even if they are using
          * different devices.
@@ -108,6 +136,7 @@ namespace DAQCap {
          * @return A DataBlob containing the data, packet count, and any 
          * warnings that were generated.
          * 
+         * @throws std::logic_error if a session has not been started.
          * @throws std::runtime_error if an error occurred that prevented
          * the function from reading data.
          * @throws timeout_exception if data could not be fetched within
@@ -124,57 +153,12 @@ namespace DAQCap {
          * 
          * @param discard True to include idle words, false to ignore them.
          */
-        virtual void setIncludeIdleWords(bool discard);
-
-        /**
-         * @brief Gets a list of all network devices on the system. If no
-         * devices could be found, returns an empty vector.
-         * 
-         * @return A vector of Device objects.
-         * 
-         * @throws std::runtime_error if an error occurred.
-         */
-        static std::vector<Device> getNetworkDevices();
-
-        // TODO: Testing. Part of this refactoring effort is to establish
-        //       a unit test suite.
-        // TODO: Go through the interface and make sure it's good.
-        // TODO: Make sure everything works on different operating systems. The
-        //       example program will need portable file management
-        // TODO: Make sure the interface is obvious
+        virtual void includeIdleWords(bool discard);
 
     private:
 
         class SessionHandler_impl;
         SessionHandler_impl *impl = nullptr;
-
-    };
-
-    // TODO: Prevent external instantiation
-    /**
-     * @brief Represents a blob of data fetched from a network device.
-     */
-    struct DataBlob {
-
-        /**
-         * @brief The number of packets in the data blob.
-         */
-        int packetCount;
-
-        /**
-         * @brief The data fetched from the network device.
-         */
-        std::vector<uint8_t> data;
-
-        /**
-         * @brief Any warnings that were generated during the fetch.
-         */
-        std::vector<std::string> warnings;
-
-        /**
-         * @brief Packs the data blob into a vector of 64-bit integers.
-         */
-        std::vector<uint64_t> pack();
 
     };
 

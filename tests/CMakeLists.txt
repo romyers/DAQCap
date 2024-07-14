@@ -1,5 +1,3 @@
-# TODO: Find Catch2 if it exists, and only FetchContent if it doesn't
-
 # Get Catch2
 FetchContent_Declare(
     Catch2
@@ -14,22 +12,10 @@ include(Catch)
 set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 set(INCLUDE_DIR ${CMAKE_SOURCE_DIR}/include)
 
-# Build the mock version of the DAQCap library
-# TODO: Cleaner way to do this? Can we avoid building two versions of the
-#       library? Try having DAQCap use an interface library that hits
-#       different versions of NetworkInterface
-add_library(
-    DAQCapMock 
-    ${SRC_DIR}/DAQCap.cpp 
-    ${SRC_DIR}/Packet.cpp
-    NetworkInterface.mock.cpp
-)
-target_include_directories(DAQCapMock PUBLIC ${INCLUDE_DIR})
-target_include_directories(DAQCapMock PRIVATE ${SRC_DIR})
-
 # Build the test executables
 add_executable(testDAQCap DAQCap.test.cpp)
-target_link_libraries(testDAQCap PRIVATE Catch2::Catch2WithMain DAQCapMock)
+target_link_libraries(testDAQCap PRIVATE Catch2::Catch2WithMain DAQCap)
+target_include_directories(testDAQCap PRIVATE ${SRC_DIR})
 add_test(NAME testDAQCap COMMAND testDAQCap)
 catch_discover_tests(testDAQCap)
 

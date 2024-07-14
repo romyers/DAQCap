@@ -3,8 +3,6 @@ set(DOXYGEN_PROJECT_NAME "DAQCap")
 set(DOXYGEN_BUILTIN_STL_SUPPORT YES)
 set(DOXYGEN_EXCLUDE_PATTERNS "*.cpp")
 
-# TODO: Add an option for building internal documentation
-
 option(BUILD_INTERNAL_DOCS "Build internal documentation" OFF)
 if(BUILD_INTERNAL_DOCS)
 

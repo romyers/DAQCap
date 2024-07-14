@@ -9,39 +9,60 @@
 
 #pragma once
 
+#include "Packet.h"
+
 #include <string>
 #include <vector>
 #include <DAQCapDevice.h>
-
-#include "Packet.h"
 
 namespace DAQCap {
 
     struct Packet;
 
     /**
-     * @brief Gets a list of all network devices on the system.
-     * If no devices could be found, returns an empty vector.
-     * 
-     * @return A vector of populated Device objects.
-     * 
-     * @throws std::runtime_error if an error occurred.
-     */
-    std::vector<Device> getDevices();
-
-    /**
      * @brief Provides an interface for retrieving packets from a network
      * device.
      */
-    class Listener {
+    class NetworkManager {
 
     public:
 
-        virtual ~Listener() = default;
+        virtual ~NetworkManager() = default;
 
         /**
-         * @brief Interrupts calls to listen(), causing them to abort
-         * execution and return. No effect if no calls to listen() are
+         * @brief Gets a list of all network devices on the system.
+         * If no devices could be found, returns an empty vector.
+         * 
+         * @return A vector of populated Device objects.
+         * 
+         * @throws std::runtime_error if an error occurred.
+         */
+        virtual std::vector<Device> getAllDevices() = 0;
+
+        /**
+         * @brief Returns true if a session is currently open, false otherwise.
+         */
+        virtual bool hasOpenSession() = 0;
+
+        /**
+         * @brief Begins a capture session on the specified device, and prepares
+         * the NetworkManager to fetch data from it.
+         * 
+         * @param device The device to start a session on.
+         * 
+         * @throws std::runtime_error if the device could not be initialized.
+         * @throws std::logic_error if a session is already open.
+         */
+        virtual void startSession(const Device &device) = 0;
+
+        /**
+         * @brief Ends a capture session on the current device.
+         */
+        virtual void endSession() = 0;
+
+        /**
+         * @brief Interrupts calls to fetchPackets(), causing them to abort
+         * execution and return. No effect if no calls to fetchPackets() are
          * currently executing.
          * 
          * @note This function is thread-safe.
@@ -50,7 +71,7 @@ namespace DAQCap {
 
         /**
          * @brief Waits for packets to arrive on the network device associated
-         * with this Listener, then reads them into a vector of Packet objects
+         * with this NetworkManager, then reads them into a vector of Packet objects
          * until packetsToRead packets have been read or the current buffer
          * is exhausted.
          * 
@@ -65,22 +86,20 @@ namespace DAQCap {
          * 
          * @throws std::runtime_error if an error occurred.
          */
-        virtual std::vector<Packet> listen(int packetsToRead) = 0;
+        virtual std::vector<Packet> fetchPackets(int packetsToRead) = 0;
 
         /**
-         * @brief Constructs a listener object for the given device.
-         * 
-         * @param device The device to listen on.
+         * @brief Constructs a NetworkManager object.
          * 
          * @throws std::invalid_argument if the device does not exist.
          * @throws std::runtime_error if the device could not
          * be initialized.
          */
-        static Listener *create(const Device &device);
+        static NetworkManager *create();
 
     protected:
 
-        Listener() = default;
+        NetworkManager() = default;
 
     };
 

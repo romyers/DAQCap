@@ -89,6 +89,28 @@ Packet::const_iterator Packet::cend() const {
     return data.cend(); 
 }
 
+size_t Packet::size() const { 
+
+    // NOTE: Using iterators allows size() to be implementation-independent
+
+    return cend() - cbegin();
+
+}
+
+uint8_t Packet::operator[](size_t index) const {
+
+    if(index >= size()) {
+
+        throw std::out_of_range(
+            "Packet::operator[]: index out of range."
+        );
+
+    }
+
+    return *(cbegin() + index);
+
+}
+
 int Packet::packetsBetween(const Packet &first, const Packet &second) {
 
     // This makes sure that first is always the packet that came first.
@@ -97,9 +119,6 @@ int Packet::packetsBetween(const Packet &first, const Packet &second) {
         return packetsBetween(second, first);
 
     }
-
-    // TODO: The following code could be made more obvious, or at least
-    //       commented
 
     int diff = 0;
     
@@ -117,31 +136,5 @@ int Packet::packetsBetween(const Packet &first, const Packet &second) {
     if(diff < 0) diff += PACKET_NUMBER_OVERFLOW;
 
     return diff;
-
-}
-
-size_t Packet::size() const { 
-
-    // NOTE: We use iterator arithmetic to easily swap to implementations that
-    //       e.g. use a different container for the data or store metadata with
-    //       the data. An older implementation of Packet stored the preload and
-    //       postload bytes with the data, and implemented cbegin() and cend()
-    //       to point to the begginning and end of the data portion.
-
-    return cend() - cbegin();
-
-}
-
-uint8_t Packet::operator[](size_t index) const {
-
-    if(index >= size()) {
-
-        throw std::out_of_range(
-            "Packet::operator[]: index out of range."
-        );
-
-    }
-
-    return *(cbegin() + index);
 
 }

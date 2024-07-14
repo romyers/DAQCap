@@ -11,41 +11,44 @@
 
 #include <string>
 
-// TODO: In order to support other network interfaces, we need to support
-//       other device formats. This will require a more flexible Device
-//       class -- probably another factory pattern.
-//         -- If we do this, device should go with the network interface
-//              -- Except that devices are exposed to the user, so they
-//                 should be in the public interface. We need to balance
-//                 exposing Device to client code with keeping
-//                 interface details behind NetworkInterface.
-
 namespace DAQCap {
 
-    // TODO: Prevent external instantiation
-    //         -- If we make it abstract, we can keep the create() method in
-    //            subclasses.
     /**
      * @brief Represents a network device on the system.
      */
-    struct Device {
+    class Device {
+
+    public:
 
         /**
-         * @brief The device name.
+         * @brief Creates a null device.
          */
-        std::string name;
+        Device();
 
         /**
-         * @brief The device description.
+         * @brief Creates a device with the given name and description.
          */
-        std::string description;
+        Device(std::string name, std::string description);
+
+        /**
+         * @brief Get the name of the device.
+         */
+        std::string getName() const;
+
+        /**
+         * @brief Get the description of the device.
+         */
+        std::string getDescription() const;
 
         /**
          * @brief Implicit conversion to bool.
          */
-        explicit operator bool() const {
-            return !name.empty();
-        }
+        explicit operator bool() const;
+
+    private:
+
+        std::string name;
+        std::string description;
 
     };
 

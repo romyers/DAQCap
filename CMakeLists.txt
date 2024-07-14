@@ -10,9 +10,6 @@ OPTION(BUILD_TESTING "Build the Test Suite" OFF)
 
 include(FetchContent)
 
-# TODO: Examine this regarding imported libraries:
-# https://stackoverflow.com/a/49487630
-
 # We only want to do this if we are the top-level project
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME) 
 
@@ -35,11 +32,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
     if(BUILD_TESTING)
         include(CTest)
+        add_subdirectory(tests)
     endif()
 
 endif()
-
-# TODO: Do different things if we're on macOS or Windows?
 
 # Point CMAKE at the project directory for modules
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules/")
@@ -63,10 +59,19 @@ if(NOT PCAP_FOUND)
 
 endif()
 
-# If we found libpcap, set the network interface to PCAP
+# If we found libpcap, build the corresponding network interface library
 if(PCAP_FOUND)
-    
-    set(NETWORK_INTERFACE PCAP)
+
+    # TODO: Have I done this correctly?
+    add_library(
+        PCap_Interface
+        STATIC
+        src/NetworkInterfaces/PCapInterface.cpp
+        src/DAQCapDevice.cpp
+        include/DAQCapDevice.h
+    )
+    target_link_libraries(PCap_Interface PRIVATE ${PCAP_LIBRARY})
+    target_include_directories(PCap_Interface PUBLIC src include)
 
 endif()
 
@@ -89,26 +94,19 @@ add_library(
     DAQCap 
     STATIC
     src/DAQCap.cpp 
+    src/DAQBlob.cpp
+    src/DAQSession_impl.cpp
     src/Packet.cpp
-    src/NetworkInterface.cpp
 )
 target_include_directories(DAQCap PUBLIC include)
-if(NETWORK_INTERFACE STREQUAL PCAP)
+if(PCAP_FOUND)
     target_compile_definitions(DAQCap PRIVATE PCAP=1)
-    target_link_libraries(DAQCap PRIVATE ${PCAP_LIBRARY})
+    target_link_libraries(DAQCap PRIVATE PCap_Interface)
 endif()
 
 # Build examples
 if(BUILD_EXAMPLES)
 
     add_subdirectory(examples)
-
-endif()
-
-# Build the test suite
-# TODO: Only do this if we're the top level project?
-if(BUILD_TESTING)
-
-    add_subdirectory(tests)
 
 endif()

@@ -8,15 +8,20 @@
  * Contact: romyers@umich.edu
  */
 
+#include <DAQCap.h>
+
 #include <iostream>
 #include <cstring>
 #include <fstream>
 #include <mutex>
+#include <algorithm>
 #include <future>
 
 #include <getopt.h>
 
-#include <DAQCap.h>
+class user_interrupt : public std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
 
 // Holds the command-line arguments
 struct Arguments {
@@ -72,23 +77,30 @@ int main(int argc, char **argv) {
 
     }
 
-
     ///////////////////////////////////////////////////////////////////////////
     // Select a device to listen on
     ///////////////////////////////////////////////////////////////////////////
 
-    DAQCap::Device device;
-    device.name = args.deviceName;
+    DAQCap::SessionHandler handler;
 
-    // If no device was specified at the command line, have the user choose one
-    // from the available devices
-    if(args.deviceName.empty()) {
+    // Check for the device specified by the user, if applicable
+    DAQCap::Device device = handler.getNetworkDevice(args.deviceName);
+
+    // If we don't have a device yet, prompt the user for one
+    if(!device) {
+
+        if(!args.deviceName.empty()) {
+
+            std::cout << "No device found with name: " << args.deviceName
+                      << std::endl;
+
+        }
 
         std::vector<DAQCap::Device> devices;
 
         try {
 
-            devices = DAQCap::SessionHandler::getNetworkDevices();
+            devices = handler.getAllNetworkDevices();
 
         } catch(const std::exception &e) {
 
@@ -110,11 +122,11 @@ int main(int argc, char **argv) {
         printDeviceList(std::cout, devices);
 
         // Prompt the user to select a device
-        // TODO: std::optional for C++17
-        device = promptForDevice(devices);
+        try {
 
-        // If we got a null device, exit
-        if(!device) {
+            device = promptForDevice(devices);
+            
+        } catch(const user_interrupt &e) {
 
             std::cout << "No device selected. Exiting..." << std::endl;
             return 0;
@@ -127,14 +139,10 @@ int main(int argc, char **argv) {
     // Initialize a SessionHandler for the selected device
     ///////////////////////////////////////////////////////////////////////////
 
-    std::unique_ptr<DAQCap::SessionHandler> handler;
-
     try {
 
         // Initialize the session handler
-        handler = std::unique_ptr<DAQCap::SessionHandler>(
-            new DAQCap::SessionHandler(device)
-        );
+        handler.startSession(device);
 
     } catch(const std::exception &e) {
 
@@ -178,7 +186,7 @@ int main(int argc, char **argv) {
 
 	}
 
-    std::cout << "Listening on device: " << device.name << std::endl;
+    std::cout << "Listening on device: " << device.getName() << std::endl;
 	std::cout << "Starting run: " << runLabel << std::endl; 
 	std::cout << "Saving packet data to: " 
               << outputFile 
@@ -208,7 +216,7 @@ int main(int argc, char **argv) {
                 if(input == "q" || input == "quit" || input == "exit") {
 
                     running = false;
-                    handler->interrupt();
+                    handler.interrupt();
 
                 }
 
@@ -227,9 +235,10 @@ int main(int argc, char **argv) {
 	while(running) {
 
         DAQCap::DataBlob blob;
+
         try {
 
-            blob = handler->fetchData(std::chrono::seconds(1));
+            blob = handler.fetchData(std::chrono::seconds(1));
 
         } catch(const DAQCap::timeout_exception &t) {
 
@@ -245,16 +254,16 @@ int main(int argc, char **argv) {
 
         }
 
-        for(const std::string &warning : blob.warnings) {
+        for(const std::string &warning : blob.warnings()) {
 
             std::cerr << warning << std::endl;
 
         }
 
-		fileWriter.write((char*)blob.data.data(), blob.data.size());
+		fileWriter.write((char*)blob.data().data(), blob.data().size());
 		fileWriter.flush();
 
-		packets += blob.packetCount;
+		packets += blob.packetCount();
 
 		while(packets / 1000 > thousands) {
 
@@ -299,7 +308,7 @@ DAQCap::Device promptForDevice(const std::vector<DAQCap::Device> &devices) {
         // Return an empty device if the user wants to quit
         if(selection == "q" || selection == "quit" || selection == "exit") {
 
-            return DAQCap::Device();
+            throw user_interrupt("User quit.");
 
         }
 
@@ -422,14 +431,18 @@ void printDeviceList(
     size_t biggestFullText = 0;
     for(const DAQCap::Device &device : devices) {
 
-        if(device.name.size() > biggestName) biggestName = device.name.size();
+        if(device.getName().size() > biggestName) {
+            
+            biggestName = device.getName().size();
+
+        }
 
     }
     for(int i = 0; i < devices.size(); ++i) {
 
         size_t fullTextSize = biggestName 
             + paddingSize 
-            + devices[i].description.size()
+            + devices[i].getDescription().size()
             + (i + 1) / 10 + 3;
 
         if(fullTextSize > biggestFullText) biggestFullText = fullTextSize;
@@ -446,15 +459,15 @@ void printDeviceList(
     for(int i = 0; i < devices.size(); ++i) {
 
         std::string padding(
-            biggestName - devices[i].name.size() + paddingSize, 
+            biggestName - devices[i].getName().size() + paddingSize, 
             ' '
         );
 
         std::cout << i + 1 
                   << ": " 
-                  << devices[i].name
+                  << devices[i].getName()
                   << padding 
-                  << devices[i].description 
+                  << devices[i].getDescription() 
                   << std::endl;
 
     }
