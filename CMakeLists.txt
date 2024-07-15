@@ -67,7 +67,6 @@ if(PCAP_FOUND)
         PCap_Interface
         STATIC
         src/NetworkInterfaces/PCapInterface.cpp
-        src/DAQCapDevice.cpp
         include/DAQCapDevice.h
     )
     target_link_libraries(PCap_Interface PRIVATE ${PCAP_LIBRARY})

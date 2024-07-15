@@ -26,14 +26,18 @@ namespace DAQCap {
         SessionHandler_impl();
         ~SessionHandler_impl();
 
-        std::vector<Device> getAllNetworkDevices();
-        Device getNetworkDevice(const std::string &name);
+        std::vector<std::shared_ptr<Device>> getAllNetworkDevices(
+            bool reload = false
+        );
 
-        void startSession(const Device &device);
+        std::shared_ptr<Device> getNetworkDevice(const std::string &name);
+
+        void startSession(const std::shared_ptr<Device> device);
 
         void endSession();
 
         void interrupt();
+        
         DataBlob fetchData(
             std::chrono::milliseconds timeout, 
             int packetsToRead
@@ -43,16 +47,16 @@ namespace DAQCap {
 
     private:
 
-        class NetworkManager *netManager = nullptr;
+        std::unique_ptr<class NetworkManager> netManager = nullptr;
 
-        bool includingIdleWords = true;
+        bool includingIdleWords = false;
 
         Packet lastPacket;
 
         // Buffer for unfinished data words at the end of a packet
         std::vector<uint8_t> unfinishedWords;
 
-        std::vector<Device> networkDeviceCache;
+        std::vector<std::shared_ptr<Device>> networkDeviceCache;
 
     };
 

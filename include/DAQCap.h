@@ -19,8 +19,8 @@
 
 namespace DAQCap {
 
-    const int ALL_PACKETS = -1;
-    const std::chrono::milliseconds FOREVER(-1);
+    extern const int ALL_PACKETS;
+    extern const std::chrono::milliseconds FOREVER;
 
     /**
      * @brief Exception thrown to signal that a timeout occurred.
@@ -41,7 +41,7 @@ namespace DAQCap {
      * @note This class is not thread-safe. Do not concurrently fetch packets
      * from two different threads, even if they are using different devices.
      */
-    class SessionHandler {
+    class SessionHandler final {
 
     public:
 
@@ -49,30 +49,42 @@ namespace DAQCap {
          * @brief Constructs a SessionHandler objec.
          */
         SessionHandler();
-        virtual ~SessionHandler();
+        ~SessionHandler();
 
-        SessionHandler(const SessionHandler &other)            = delete;
-        SessionHandler &operator=(const SessionHandler &other) = delete;
-
+        // TODO: Perhaps a reloadDeviceCache() method would be useful.
         /**
          * @brief Gets a network device by name.
          * 
+         * @note If the device is not in the internal cache, the cache will be
+         * reloaded. But if a device in the internal cache has since been 
+         * removed, the cache will not be reloaded, and the device will
+         * still be returned. If an up-to-date cache is required, call
+         * getAllNetworkDevices() with the reload parameter set to true.
+         * 
          * @param name The name of the device to get.
          * 
-         * @return The Device object with the specified name, or a null
-         * device if an error occurred or the device could not be found.
+         * @return A pointer to the device with the specified name, or a null
+         * device if the device could not be found.
+         * 
+         * @throws std::runtime_error if an error occurred.
          */
-        Device getNetworkDevice(const std::string &name);
+        std::shared_ptr<Device> getNetworkDevice(const std::string &name);
 
         /**
          * @brief Gets a list of all network devices on the system. If no
          * devices could be found, returns an empty vector.
          * 
-         * @return A vector of Device objects.
+         * @param reload Whether to reload internally cached network devices.
+         * By default, the internal cache is not reloaded, and the device
+         * list will not be updated for any newly added or removed devices.
+         * 
+         * @return A vector of Device pointers.
          * 
          * @throws std::runtime_error if an error occurred.
          */
-        std::vector<Device> getAllNetworkDevices();
+        std::vector<std::shared_ptr<Device>> getAllNetworkDevices(
+            bool reload = false
+        );
 
         /**
          * @brief Begins a capture session on the specified device, and prepares
@@ -85,7 +97,7 @@ namespace DAQCap {
          * @throws std::runtime_error if the device does not exist or could not
          * be initialized.
          */
-        void startSession(const Device &device);
+        void startSession(const std::shared_ptr<Device> device);
 
         /**
          * @brief Ends a capture session on the current device.
@@ -95,7 +107,7 @@ namespace DAQCap {
         /**
          * @brief Thread-safe method that interrupts calls to fetchData().
          */
-        virtual void interrupt();
+        void interrupt();
 
         /**
          * @brief Waits for and retrieves data from the network device
@@ -142,7 +154,7 @@ namespace DAQCap {
          * @throws timeout_exception if data could not be fetched within
          * timeout milliseconds.
          */
-        virtual DataBlob fetchData(
+        DataBlob fetchData(
             std::chrono::milliseconds timeout = FOREVER,
             int packetsToRead = ALL_PACKETS
         );
@@ -153,7 +165,10 @@ namespace DAQCap {
          * 
          * @param discard True to include idle words, false to ignore them.
          */
-        virtual void includeIdleWords(bool discard);
+        void includeIdleWords(bool discard);
+
+        SessionHandler(const SessionHandler &other)            = delete;
+        SessionHandler &operator=(const SessionHandler &other) = delete;
 
     private:
 

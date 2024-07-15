@@ -23,6 +23,18 @@ namespace DAQCap {
     public:
 
         /**
+         * @brief The size in bytes of data words contained in the packet.
+         */
+        static const size_t WORD_SIZE;
+
+        /**
+         * @brief The signature of an idle data word. 
+         * 
+         * If IDLE_WORD is empty, then idle words do not exist.
+         */
+        static const std::vector<uint8_t> IDLE_WORD;
+
+        /**
          * @brief Constructs a null packet with no data.
          */
         Packet();
@@ -98,23 +110,6 @@ namespace DAQCap {
          * packets.
          */
         static int packetsBetween(const Packet &first, const Packet &second);
-
-        /**
-         * @brief Gets the size of data words contained in the packet, in
-         * bytes.
-         * 
-         * @return The size of data words contained in the packet, in bytes.
-         */
-        static size_t wordSize();
-
-        /**
-         * @brief Returns the signature of an idle data word. If empty, then
-         * idle words do not exist.
-         * 
-         * @return The signature of an idle data word, or empty if there are no
-         * idle words.
-         */
-        static std::vector<uint8_t> idleWord();
 
         /**
          * @brief Converts the packet to a boolean value. Returns true if the

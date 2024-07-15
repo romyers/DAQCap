@@ -5,14 +5,36 @@
 #include "PCapInterface.h"
 
 #include <stdexcept>
+#include <memory>
 
 #include <pcap.h>
 
+using std::unique_ptr;
+using std::shared_ptr;
+
+using std::vector;
+using std::string;
+
 using namespace DAQCap;
 
-NetworkManager *NetworkManager::create() {
+unique_ptr<NetworkManager> NetworkManager::create() {
 
-    return new PCap_Manager();
+    return unique_ptr<NetworkManager>(new PCapManager);
+
+}
+
+PCapDevice::PCapDevice(string name, string description):
+    name(name), description(description) {}
+
+string PCapDevice::getName() const {
+
+    return name;
+
+}
+
+string PCapDevice::getDescription() const {
+
+    return description;
 
 }
 
@@ -25,7 +47,7 @@ NetworkManager *NetworkManager::create() {
 // NOTE: The packet buffer is left in a broken state between calls to
 //       fetchPackets(). It is the responsibility of the caller to clear the
 //       buffer before using it.
-std::vector<Packet> g_packetBuffer;
+vector<Packet> g_packetBuffer;
 
 // Stores the packet data in g_packetBuffer. This function is passed as a 
 // callback into pcap_dispatch() during packet fetching.
@@ -38,13 +60,13 @@ void listen_callback(
 // A concrete class we'll be returning as a NetworkManager* from the factory 
 // function
 
-PCap_Manager::~PCap_Manager() {
+PCapManager::~PCapManager() {
 
     endSession();
 
 }
 
-void PCap_Manager::endSession() {
+void PCapManager::endSession() {
 
     if(handler) pcap_close(handler);
     handler = nullptr;
@@ -53,24 +75,24 @@ void PCap_Manager::endSession() {
 
 }
 
-bool PCap_Manager::hasOpenSession() {
+bool PCapManager::hasOpenSession() {
 
     return handler != nullptr;
 
 }
 
-void PCap_Manager::interrupt() {
+void PCapManager::interrupt() {
 
     if(handler) pcap_breakloop(handler);
 
 }
 
-void PCap_Manager::startSession(const Device &device) {
+void PCapManager::startSession(const shared_ptr<Device> device) {
 
     if(hasOpenSession()) {
 
         throw std::logic_error(
-            "PCap_Manager::startSession() cannot be called while another "
+            "PCapManager::startSession() cannot be called while another "
             "session is open."
         );
 
@@ -84,7 +106,7 @@ void PCap_Manager::startSession(const Device &device) {
     //            to_ms, 
     //            error_buffer
     handler = pcap_open_live(
-        device.getName().data(), 
+        device->getName().data(), 
         65536, 
         1, 
         10000, 
@@ -95,8 +117,8 @@ void PCap_Manager::startSession(const Device &device) {
         handler = nullptr;
 
         throw std::runtime_error(
-            std::string("Could not open device ") 
-                + device.getName() + " : " + errorBuffer
+            string("Could not open device ") 
+                + device->getName() + " : " + errorBuffer
         );
 
     }
@@ -138,7 +160,7 @@ void PCap_Manager::startSession(const Device &device) {
 
 }
 
-std::vector<Packet> PCap_Manager::fetchPackets(int packetsToRead) {
+vector<Packet> PCapManager::fetchPackets(int packetsToRead) {
 
     g_packetBuffer.clear();
     int ret = pcap_dispatch(
@@ -150,10 +172,10 @@ std::vector<Packet> PCap_Manager::fetchPackets(int packetsToRead) {
 
     if(ret == -1) { // An error occurred
 
-        std::string errorMessage(pcap_geterr(handler));
+        string errorMessage(pcap_geterr(handler));
 
         throw std::runtime_error(
-            std::string("Error in pcap_dispatch: ") + errorMessage
+            string("Error in pcap_dispatch: ") + errorMessage
         );
 
     } else if(ret == -2) { // Packet fetching was interrupted
@@ -161,7 +183,7 @@ std::vector<Packet> PCap_Manager::fetchPackets(int packetsToRead) {
         // NOTE: This is not an exceptional case. We just return an empty
         //       vector of Packets and let the code that called interrupt()
         //       worry about whether it needs special handling.
-        return std::vector<Packet>();
+        return vector<Packet>();
 
     } 
     
@@ -169,7 +191,7 @@ std::vector<Packet> PCap_Manager::fetchPackets(int packetsToRead) {
 
 }
 
-std::vector<Device> PCap_Manager::getAllDevices() {
+vector<shared_ptr<Device>> PCapManager::getAllDevices() {
 
     pcap_if_t* deviceHandle = nullptr;
     char errorBuffer[PCAP_ERRBUF_SIZE];
@@ -180,24 +202,26 @@ std::vector<Device> PCap_Manager::getAllDevices() {
         deviceHandle = nullptr;
 
         throw std::runtime_error(
-            std::string("Error in pcap_findalldevs: ") + errorBuffer
+            string("Error in pcap_findalldevs: ") + errorBuffer
         );
 
     }
 
     if(deviceHandle == nullptr) {
 
-        return std::vector<Device>();
+        return vector<shared_ptr<Device>>();
 
     }
 
-    std::vector<Device> devices;
+    vector<shared_ptr<Device>> devices;
 
     for(pcap_if_t* d = deviceHandle; d != nullptr; d = d->next) {
 
         devices.emplace_back(
-            d->name? d->name : "(Unknown Device)",
-            d->description? d->description : "(No description available)"
+            new PCapDevice(
+                d->name? d->name : "(Unknown Device)",
+                d->description? d->description : "(No description available)"
+            )
         );
 
     }
@@ -217,6 +241,7 @@ void listen_callback(
 
     try {
 
+        // NOTE: We have to use a structure with global scope here.
         g_packetBuffer.emplace_back(packet_data, header->len);
 
     } catch(const std::invalid_argument &e) {

@@ -17,12 +17,34 @@ namespace DAQCap {
     // OPTIMIZATION: If performance matters, we can return DataBlob values
     //               by const reference instead of by value, at the risk of a 
     //               more complex interface.
+
+    /**
+     * @brief An integer type representing a word of miniDAQ data.
+     */
+    typedef uint64_t Word;
+
+    /**
+     * @brief Packs data bytes into words. Excludes any trailing partial words.
+     * 
+     * REQUIRES: 
+     *  - The first byte of data is the first byte of a word.
+     *  - Words are stored consecutively in data.
+     *  - Words in data are in big-endian byte order.
+     * 
+     * @note The result of DataBlob::data() is guaranteed to be well-formed
+     * as input data for packedData().
+     * 
+     * @param data The data to be packed. The data is expected to begin at the
+     * start of a word.
+     */
+    std::vector<Word> packData(const std::vector<uint8_t> &data);
+
     /**
      * @brief Represents a blob of data fetched from a network device.
      * 
      * @note DataBlobs contain exactly an integral number of words.
      */
-    class DataBlob {
+    class DataBlob final {
 
     public:
 
@@ -31,22 +53,17 @@ namespace DAQCap {
         /**
          * @brief Gets number of packets in the data blob.
          */
-        int packetCount();
+        int packetCount() const;
 
         /**
          * @brief Gets data fetched from the network device.
          */
-        std::vector<uint8_t> data();
+        std::vector<uint8_t> data() const;
 
         /**
          * @brief Gets warnings that were generated during the fetch.
          */
-        std::vector<std::string> warnings();
-
-        /**
-         * @brief Packs the data blob into a vector of 64-bit integers.
-         */
-        std::vector<uint64_t> pack();
+        std::vector<std::string> warnings() const;
 
     private:
 

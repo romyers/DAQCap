@@ -29,15 +29,18 @@ namespace DAQCap {
 
         virtual ~NetworkManager() = default;
 
+        NetworkManager(const NetworkManager &other) = delete;
+        NetworkManager &operator=(const NetworkManager &other) = delete;
+
         /**
          * @brief Gets a list of all network devices on the system.
          * If no devices could be found, returns an empty vector.
          * 
-         * @return A vector of populated Device objects.
+         * @return A vector of populated Device pointers.
          * 
          * @throws std::runtime_error if an error occurred.
          */
-        virtual std::vector<Device> getAllDevices() = 0;
+        virtual std::vector<std::shared_ptr<Device>> getAllDevices() = 0;
 
         /**
          * @brief Returns true if a session is currently open, false otherwise.
@@ -53,7 +56,7 @@ namespace DAQCap {
          * @throws std::runtime_error if the device could not be initialized.
          * @throws std::logic_error if a session is already open.
          */
-        virtual void startSession(const Device &device) = 0;
+        virtual void startSession(const std::shared_ptr<Device> device) = 0;
 
         /**
          * @brief Ends a capture session on the current device.
@@ -95,7 +98,7 @@ namespace DAQCap {
          * @throws std::runtime_error if the device could not
          * be initialized.
          */
-        static NetworkManager *create();
+        static std::unique_ptr<NetworkManager> create();
 
     protected:
 

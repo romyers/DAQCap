@@ -3,6 +3,9 @@
 #include <algorithm>
 #include <stdexcept>
 
+using std::string;
+using std::vector;
+
 using namespace DAQCap;
 
 /*
@@ -16,18 +19,11 @@ const int    PACKET_NUMBER_OVERFLOW = 65536;
 const size_t PRELOAD_BYTES          = 14   ;
 const size_t POSTLOAD_BYTES         = 4    ;
 
-size_t Packet::wordSize() {
+const size_t Packet::WORD_SIZE = 5;
 
-    return 5;
-
-}
-
-std::vector<uint8_t> Packet::idleWord() {
-
-    return std::vector<uint8_t>(Packet::wordSize(), 0xFF);
-
-}
-
+const vector<uint8_t> Packet::IDLE_WORD 
+    = vector<uint8_t>(Packet::WORD_SIZE, 0xFF);
+    
 Packet::Packet() : packetNumber(0) {
 
     // A 0 ID denotes a null packet
@@ -37,10 +33,17 @@ Packet::Packet() : packetNumber(0) {
         
 Packet::Packet(const uint8_t *raw_data, size_t size) : packetNumber(0) {
 
+    // NOTE: This relates to the data format from the miniDAQ, not to the 
+    //       network interface we're using to get the data.
+    //       This logic should not be in the network interface.
+    //       The point is that the network interface will give Packet
+    //       the raw packet data, and Packet will take that data and extract
+    //       the packet size and data section from it.
+
     if(size < PRELOAD_BYTES + POSTLOAD_BYTES) {
 
         throw std::invalid_argument(
-            std::string("Packet::Packet: raw_data must be at least ")
+            string("Packet::Packet: raw_data must be at least ")
                 + std::to_string(PRELOAD_BYTES + POSTLOAD_BYTES)
                 + " bytes long."
         );
@@ -82,11 +85,15 @@ int Packet::getPacketNumber() const {
 }
 
 Packet::const_iterator Packet::cbegin() const { 
+
     return data.cbegin(); 
+
 }
 
 Packet::const_iterator Packet::cend() const { 
+
     return data.cend(); 
+
 }
 
 size_t Packet::size() const { 

@@ -6,6 +6,11 @@
 
 #include <future>
 
+using std::vector;
+using std::string;
+
+using std::shared_ptr;
+
 using namespace DAQCap;
 
 SessionHandler::SessionHandler_impl::SessionHandler_impl()
@@ -15,7 +20,6 @@ SessionHandler::SessionHandler_impl::~SessionHandler_impl() {
 
     endSession();
 
-    delete netManager;
     netManager = nullptr;
 
 }
@@ -45,7 +49,14 @@ void SessionHandler::SessionHandler_impl::interrupt() {
 
 }
 
-std::vector<Device> SessionHandler::SessionHandler_impl::getAllNetworkDevices() {
+vector<shared_ptr<Device>> 
+    SessionHandler::SessionHandler_impl::getAllNetworkDevices(bool reload) {
+
+    if(reload) {
+
+        networkDeviceCache.clear();
+
+    }
 
     if(networkDeviceCache.empty()) {
 
@@ -57,35 +68,36 @@ std::vector<Device> SessionHandler::SessionHandler_impl::getAllNetworkDevices() 
 
 }
 
-Device SessionHandler::SessionHandler_impl::getNetworkDevice(
-    const std::string &name
+shared_ptr<Device> SessionHandler::SessionHandler_impl::getNetworkDevice(
+    const string &name
 ) {
 
-    if(name.empty()) return Device();
+    if(name.empty()) return nullptr;
 
-    std::vector<Device> devices;
-    
-    try {
+    // Check the cache first
+    for(const shared_ptr<Device> device : networkDeviceCache) {
 
-        devices = getAllNetworkDevices();
-
-    } catch(...) {
-
-        return Device();
+        if(device->getName() == name) return device;
 
     }
 
-    for(const Device &device : devices) {
+    // If the device wasn't in the cache, try reloading the device list
+    vector<shared_ptr<Device>> devices;
+    devices = getAllNetworkDevices(true);
 
-        if(device.getName() == name) return device;
+    for(const shared_ptr<Device> device : devices) {
+
+        if(device->getName() == name) return device;
 
     }
 
-    return Device();
+    return nullptr;
 
 }
     
-void SessionHandler::SessionHandler_impl::startSession(const Device &device) {
+void SessionHandler::SessionHandler_impl::startSession(
+    const shared_ptr<Device> device
+) {
 
     // Make sure the device exists
     if(!device) {
@@ -96,16 +108,23 @@ void SessionHandler::SessionHandler_impl::startSession(const Device &device) {
 
     }
 
-    for(const Device &d : netManager->getAllDevices()) {
+    bool exists = false;
+    for(const shared_ptr<Device> d : netManager->getAllDevices()) {
 
-        if(device.getName() == d.getName()) {
+        if(device->getName() == d->getName()) {
+
+            exists = true;
 
             break;
 
         }
 
+    }
+
+    if(!exists) {
+
         throw std::runtime_error(
-            "Device " + device.getName() + " does not exist."
+            "Device " + device->getName() + " does not exist."
         );
 
     }
@@ -174,7 +193,7 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
     // Get the result
     ///////////////////////////////////////////////////////////////////////////
 
-    std::vector<Packet> packets;
+    vector<Packet> packets;
     try {
 
         packets = future.get();
@@ -182,22 +201,22 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
     } catch(const std::exception &e) {
 
         throw std::runtime_error(
-            std::string("Failed to fetch packets: ") + e.what()
+            string("Failed to fetch packets: ") + e.what()
         );
 
     }
 
+    DataBlob blob;
+
     if(packets.empty()) {
 
-        return DataBlob();
+        return blob;
 
     }
 
     ///////////////////////////////////////////////////////////////////////////
     // Check for lost packets
     ///////////////////////////////////////////////////////////////////////////
-
-    DataBlob blob;
 
     // Check across the boundary between fetchData calls
     if(lastPacket) {
@@ -244,12 +263,12 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
 
     blob.packets = packets.size();
 
-    std::vector<uint8_t> data;
+    vector<uint8_t> data;
     std::swap(data, unfinishedWords);
 
     // This likely won't hold everything, but it will eliminate some extraneous
     // reallocations.
-    data.reserve(packets.size() * Packet::wordSize());
+    data.reserve(packets.size() * Packet::WORD_SIZE);
 
     for(const Packet &packet : packets) {
 
@@ -264,28 +283,28 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
     // TODO: Test very carefully that this loop terminates in the right place
     //       and leaves iter where it needs to be for the following insert call
     blob.dataBuffer.reserve(data.size());
-    auto iter = data.begin();
+    auto iter = data.cbegin();
     for(
         ;
-        iter != data.end() - data.size() % Packet::wordSize();
-        iter += Packet::wordSize()
+        iter != data.cend() - (data.size() % Packet::WORD_SIZE);
+        iter += Packet::WORD_SIZE
     ) {
 
         // TODO: Test idle word removal
         if(
             includingIdleWords ||
-            Packet::idleWord().empty() || // If so, there is no idle word
+            Packet::IDLE_WORD.empty() || // If so, there is no idle word
             !std::equal(
                 iter,
-                iter + Packet::wordSize(),
-                Packet::idleWord().cbegin()
+                iter + Packet::WORD_SIZE,
+                Packet::IDLE_WORD.cbegin()
             )
         ) {
 
             blob.dataBuffer.insert(
                 blob.dataBuffer.end(),
-                std::make_move_iterator(iter),
-                std::make_move_iterator(iter + Packet::wordSize())
+                iter,
+                iter + Packet::WORD_SIZE
             );
 
         }
@@ -294,8 +313,8 @@ DataBlob SessionHandler::SessionHandler_impl::fetchData(
 
     unfinishedWords.insert(
         unfinishedWords.end(),
-        std::make_move_iterator(iter),
-        std::make_move_iterator(data.end())
+        iter,
+        data.cend()
     );
 
     return blob;

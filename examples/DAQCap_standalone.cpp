@@ -19,6 +19,19 @@
 
 #include <getopt.h>
 
+using std::vector;
+using std::string;
+
+using std::shared_ptr;
+
+using std::cout;
+using std::cin;
+using std::cerr;
+using std::endl;
+
+using DAQCap::Device;
+using DAQCap::SessionHandler;
+
 class user_interrupt : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
@@ -27,10 +40,10 @@ class user_interrupt : public std::runtime_error {
 struct Arguments {
 
     // Output directory path
-    std::string outPath;
+    string outPath;
 
     // Name of the network device to listen on
-    std::string deviceName;
+    string deviceName;
 
     // Whether the help option was specified
     bool help = false;
@@ -47,15 +60,17 @@ struct Arguments {
 Arguments parseArguments(int argc, char **argv);
 
 // Prompt user to select a device from a list
-DAQCap::Device promptForDevice(const std::vector<DAQCap::Device> &devices);
+shared_ptr<Device> promptForDevice(
+    const vector<shared_ptr<Device>> &devices
+);
 
 // Get a timestamp representing the current time in the given format
-std::string getCurrentTimestamp(const std::string &format);
+string getCurrentTimestamp(const string &format);
 
 // Print a list of available network devices
 void printDeviceList(
     std::ostream &os, 
-    const std::vector<DAQCap::Device> &devices
+    const vector<shared_ptr<Device>> &devices
 );
 
 // Print the help message
@@ -71,7 +86,7 @@ int main(int argc, char **argv) {
 
     if(!args.valid || args.help) {
 
-        printHelp(std::cout);
+        printHelp(cout);
 
         return 0;
 
@@ -81,22 +96,23 @@ int main(int argc, char **argv) {
     // Select a device to listen on
     ///////////////////////////////////////////////////////////////////////////
 
-    DAQCap::SessionHandler handler;
+    SessionHandler handler;
 
     // Check for the device specified by the user, if applicable
-    DAQCap::Device device = handler.getNetworkDevice(args.deviceName);
+    shared_ptr<Device> device 
+        = handler.getNetworkDevice(args.deviceName);
 
     // If we don't have a device yet, prompt the user for one
     if(!device) {
 
         if(!args.deviceName.empty()) {
 
-            std::cout << "No device found with name: " << args.deviceName
-                      << std::endl;
+            cout << "No device found with name: " << args.deviceName
+                      << endl;
 
         }
 
-        std::vector<DAQCap::Device> devices;
+        vector<shared_ptr<Device>> devices;
 
         try {
 
@@ -104,8 +120,8 @@ int main(int argc, char **argv) {
 
         } catch(const std::exception &e) {
 
-            std::cerr << e.what() << std::endl;
-            std::cout << "Exiting..." << std::endl;
+            cerr << e.what() << endl;
+            cout << "Exiting..." << endl;
 
             return 1;
 
@@ -113,13 +129,13 @@ int main(int argc, char **argv) {
 
         if(devices.empty()) {
 
-            std::cout << "No network devices found. Check your permissions."
-                      << std::endl;
+            cout << "No network devices found. Check your permissions."
+                      << endl;
 
         }
 
         // Print the list of devices
-        printDeviceList(std::cout, devices);
+        printDeviceList(cout, devices);
 
         // Prompt the user to select a device
         try {
@@ -128,7 +144,7 @@ int main(int argc, char **argv) {
             
         } catch(const user_interrupt &e) {
 
-            std::cout << "No device selected. Exiting..." << std::endl;
+            cout << "No device selected. Exiting..." << endl;
             return 0;
 
         }
@@ -146,8 +162,8 @@ int main(int argc, char **argv) {
 
     } catch(const std::exception &e) {
 
-        std::cerr << e.what() << std::endl;
-        std::cout << "Aborted run!" << std::endl;
+        cerr << e.what() << endl;
+        cout << "Aborted run!" << endl;
 
         return 1;
 
@@ -157,10 +173,10 @@ int main(int argc, char **argv) {
     // Set up output file
     ///////////////////////////////////////////////////////////////////////////
 
-    std::string runLabel 
-        = std::string("run_") + getCurrentTimestamp("%Y%m%d_%H%M%S");
+    string runLabel 
+        = string("run_") + getCurrentTimestamp("%Y%m%d_%H%M%S");
 
-    std::string outputFile = args.outPath;
+    string outputFile = args.outPath;
 
     // If the output directory is nonempty and doesn't end in a slash, add one
     if(!outputFile.empty()) {
@@ -178,21 +194,21 @@ int main(int argc, char **argv) {
 	std::ofstream fileWriter(outputFile);
 	if(!fileWriter.is_open()) {
 
-		std::cerr << "Failed to open output file: " << outputFile << std::endl;
-        std::cerr << "Does the output directory exist?" << std::endl;
-		std::cout << "Aborted run!" << std::endl;
+		cerr << "Failed to open output file: " << outputFile << endl;
+        cerr << "Does the output directory exist?" << endl;
+		cout << "Aborted run!" << endl;
 
 		return 1;
 
 	}
 
-    std::cout << "Listening on device: " << device.getName() << std::endl;
-	std::cout << "Starting run: " << runLabel << std::endl; 
-	std::cout << "Saving packet data to: " 
+    cout << "Listening on device: " << device->getName() << endl;
+	cout << "Starting run: " << runLabel << endl; 
+	cout << "Saving packet data to: " 
               << outputFile 
-              << std::endl;
-    std::cout << "Enter 'q' to quit." << std::endl;
-    std::cout << std::endl;
+              << endl;
+    cout << "Enter 'q' to quit." << endl;
+    cout << endl;
 
     ///////////////////////////////////////////////////////////////////////////
     // Asynchronously listen for user to quit
@@ -208,10 +224,10 @@ int main(int argc, char **argv) {
         std::launch::async,
         [&handler, &running]() {
 
-            std::string input;
+            string input;
             while(running) {
 
-                std::getline(std::cin, input);
+                std::getline(cin, input);
 
                 if(input == "q" || input == "quit" || input == "exit") {
 
@@ -242,21 +258,21 @@ int main(int argc, char **argv) {
 
         } catch(const DAQCap::timeout_exception &t) {
 
-            std::cerr << "Timed out while waiting for packets." << std::endl;
+            cerr << "Timed out while waiting for packets." << endl;
 
             continue;
 
         } catch(const std::exception &e) {
 
-            std::cerr << e.what() << std::endl;
+            cerr << e.what() << endl;
 
             continue; 
 
         }
 
-        for(const std::string &warning : blob.warnings()) {
+        for(const string &warning : blob.warnings()) {
 
-            std::cerr << warning << std::endl;
+            cerr << warning << endl;
 
         }
 
@@ -269,7 +285,7 @@ int main(int argc, char **argv) {
 
 			++thousands;
 
-			std::cout << "Recorded " << thousands * 1000 << " packets";
+			cout << "Recorded " << thousands * 1000 << " packets";
 
 		}
 
@@ -285,25 +301,27 @@ int main(int argc, char **argv) {
     // Cleanup
     ///////////////////////////////////////////////////////////////////////////
 
-    std::cout << std::endl;
-	std::cout << "Data capture finished!" << std::endl;
-	std::cout << packets << " packets recorded." << std::endl;
+    cout << endl;
+	cout << "Data capture finished!" << endl;
+	cout << packets << " packets recorded." << endl;
 
     return 0;
 
 }
 
-DAQCap::Device promptForDevice(const std::vector<DAQCap::Device> &devices) {
+shared_ptr<Device> promptForDevice(
+    const vector<shared_ptr<Device>> &devices
+) {
 
     // Prompt user for a device
     int deviceNum = -1;
-    std::string selection;
+    string selection;
     do {
 
-        std::cout << "Select a device (1-" << devices.size() << ")";
-        std::cout << " or select 'q' to quit: ";
+        cout << "Select a device (1-" << devices.size() << ")";
+        cout << " or select 'q' to quit: ";
 
-        std::getline(std::cin, selection);
+        std::getline(cin, selection);
 
         // Return an empty device if the user wants to quit
         if(selection == "q" || selection == "quit" || selection == "exit") {
@@ -318,14 +336,14 @@ DAQCap::Device promptForDevice(const std::vector<DAQCap::Device> &devices) {
 
         } catch(std::invalid_argument& e) {
 
-            std::cout << "Invalid selection:" << selection << std::endl;
+            cout << "Invalid selection:" << selection << endl;
             continue;
 
         }
 
         if(deviceNum < 1 || deviceNum > devices.size()) {
 
-            std::cout << "Invalid selection: " << selection << std::endl;
+            cout << "Invalid selection: " << selection << endl;
 
         } else {
 
@@ -335,7 +353,7 @@ DAQCap::Device promptForDevice(const std::vector<DAQCap::Device> &devices) {
 
     } while(true);
 
-    std::cout << std::endl;
+    cout << endl;
 
     return devices[deviceNum - 1];
 
@@ -379,9 +397,9 @@ Arguments parseArguments(int argc, char **argv) {
 
                 } catch(std::invalid_argument &e) {
 
-                    std::cerr << "-m, --max-packets must take an integer"
+                    cerr << "-m, --max-packets must take an integer"
                               << " argument." 
-                              << std::endl;
+                              << endl;
 
                     args.valid = false;
 
@@ -403,7 +421,7 @@ Arguments parseArguments(int argc, char **argv) {
 
 }
 
-std::string getCurrentTimestamp(const std::string &format) {
+string getCurrentTimestamp(const string &format) {
 
 	time_t sys_time;
 	struct tm *timeinfo;
@@ -416,24 +434,24 @@ std::string getCurrentTimestamp(const std::string &format) {
 	std::memset(formatBuffer, 0, sizeof(formatBuffer));
 	strftime(formatBuffer, 40, format.data(), timeinfo);
 
-	return std::string(formatBuffer);
+	return string(formatBuffer);
 
 }
 
 void printDeviceList(
     std::ostream &os, 
-    const std::vector<DAQCap::Device> &devices
+    const vector<shared_ptr<Device>> &devices
 ) {
 
     // Find the biggest name and description so we can format the output
     size_t paddingSize = 4;
     size_t biggestName = 0;
     size_t biggestFullText = 0;
-    for(const DAQCap::Device &device : devices) {
+    for(const shared_ptr<Device> device : devices) {
 
-        if(device.getName().size() > biggestName) {
+        if(device->getName().size() > biggestName) {
             
-            biggestName = device.getName().size();
+            biggestName = device->getName().size();
 
         }
 
@@ -442,7 +460,7 @@ void printDeviceList(
 
         size_t fullTextSize = biggestName 
             + paddingSize 
-            + devices[i].getDescription().size()
+            + devices[i]->getDescription().size()
             + (i + 1) / 10 + 3;
 
         if(fullTextSize > biggestFullText) biggestFullText = fullTextSize;
@@ -450,32 +468,32 @@ void printDeviceList(
     }
 
     // Print the devices
-    std::cout << "Available network devices:" << std::endl;
-    std::cout << std::string(
+    cout << "Available network devices:" << endl;
+    cout << string(
         biggestFullText, 
         '-'
     );
-    std::cout << std::endl;
+    cout << endl;
     for(int i = 0; i < devices.size(); ++i) {
 
-        std::string padding(
-            biggestName - devices[i].getName().size() + paddingSize, 
+        string padding(
+            biggestName - devices[i]->getName().size() + paddingSize, 
             ' '
         );
 
-        std::cout << i + 1 
+        cout << i + 1 
                   << ": " 
-                  << devices[i].getName()
+                  << devices[i]->getName()
                   << padding 
-                  << devices[i].getDescription() 
-                  << std::endl;
+                  << devices[i]->getDescription() 
+                  << endl;
 
     }
-    std::cout << std::string(
+    cout << string(
         biggestFullText, 
         '-'
     );
-    std::cout << std::endl;
+    cout << endl;
 
 }
 
@@ -483,21 +501,21 @@ void printHelp(std::ostream &os) {
 
     os << "Usage: p2ecap_standalone [-o output_path] [-d device_name]"
        << " [-m max_packets] [-h]"
-       << std::endl;
+       << endl;
 
     os << "Options:"
-       << std::endl;
+       << endl;
 
     os << "\t-o, --out         Path to the output directory."
-       << std::endl;
+       << endl;
 
     os << "\t-d, --device      Name of the network device to listen on."
-       << std::endl;
+       << endl;
 
     os << "\t-m, --max-packets Maximum number of packets to capture."
-       << std::endl;
+       << endl;
 
     os << "\t-h, --help        Display this help message."
-       << std::endl;
+       << endl;
 
 }

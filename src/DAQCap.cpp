@@ -13,7 +13,17 @@
 
 #include <pcap.h>
 
+using std::vector;
+using std::string;
+
+using std::shared_ptr;
+
 using namespace DAQCap;
+
+const int DAQCap::ALL_PACKETS = -1;
+
+const std::chrono::milliseconds DAQCap::FOREVER 
+    = std::chrono::milliseconds(-1);
 
 SessionHandler::SessionHandler() 
     : impl(new SessionHandler::SessionHandler_impl()) {}
@@ -24,7 +34,7 @@ SessionHandler::~SessionHandler() {
     
 }
 
-void SessionHandler::startSession(const Device &device) {
+void SessionHandler::startSession(const shared_ptr<Device> device) {
 
     impl->startSession(device);
 
@@ -36,13 +46,17 @@ void SessionHandler::endSession() {
     
 }
 
-std::vector<Device> SessionHandler::getAllNetworkDevices() {
+vector<shared_ptr<Device>> SessionHandler::getAllNetworkDevices(
+    bool reload
+) {
 
-    return impl->getAllNetworkDevices();
+    return impl->getAllNetworkDevices(reload);
 
 }
 
-Device SessionHandler::getNetworkDevice(const std::string &name) {
+shared_ptr<Device> SessionHandler::getNetworkDevice(
+    const string &name
+) {
 
     return impl->getNetworkDevice(name);
 
@@ -69,10 +83,4 @@ void SessionHandler::interrupt() {
     
     impl->interrupt(); 
     
-}
-
-int DataBlob::packetCount() {
-
-    return packets;
-
 }

@@ -10,45 +10,39 @@
 #pragma once
 
 #include <string>
+#include <memory>
 
 namespace DAQCap {
 
     /**
      * @brief Represents a network device on the system.
+     * 
+     * @note Devices are not meant to be instantiated or subclassed by
+     * external code. Use SessionHandler::getNetworkDevice() or
+     * SessionHandler::getAllNetworkDevices() to access them.
      */
     class Device {
 
     public:
 
-        /**
-         * @brief Creates a null device.
-         */
-        Device();
-
-        /**
-         * @brief Creates a device with the given name and description.
-         */
-        Device(std::string name, std::string description);
+        virtual ~Device() = default;
 
         /**
          * @brief Get the name of the device.
          */
-        std::string getName() const;
+        virtual std::string getName() const = 0;
 
         /**
          * @brief Get the description of the device.
          */
-        std::string getDescription() const;
+        virtual std::string getDescription() const = 0;
 
-        /**
-         * @brief Implicit conversion to bool.
-         */
-        explicit operator bool() const;
+        Device(const Device &other) = delete;
+        Device &operator=(const Device &other) = delete;
 
-    private:
+    protected:
 
-        std::string name;
-        std::string description;
+        Device() = default;
 
     };
 
