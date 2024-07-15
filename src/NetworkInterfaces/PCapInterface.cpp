@@ -252,13 +252,4 @@ void listen_callback(
         
     }
 
-    delete[] useless;
-    useless = nullptr;
-
-    delete header;
-    header = nullptr;
-
-    delete[] packet_data;
-    packet_data = nullptr;
-
 }
