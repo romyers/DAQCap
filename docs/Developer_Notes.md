@@ -7,7 +7,7 @@ TODO: Discuss:
   DAQCap.cpp
 
 TODO: Go over doxygen documentation and make sure it's ready to push
-TODO: Make sure we have the right github repo
+TODO: Make sure we have the right github repo for the fetchContent docs
 
 TODO: Note to developers what part of the code they need to work with to
 do what they want to do. E.g. new data formats mean working with Packet, 

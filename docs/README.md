@@ -1,6 +1,8 @@
 \mainpage
 \tableofcontents
 
+TODO: pthread linking
+
 # DAQCap -- ATLAS MiniDAQ Data Capture Library
 
 This library provides tools for capturing data from miniDAQ MDT and
