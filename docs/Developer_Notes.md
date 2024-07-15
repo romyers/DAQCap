@@ -1,4 +1,13 @@
+\page Developer Notes
 
+TODO: Discuss:
+  Packet
+  NetworkManager
+  Device
+  DAQCap.cpp
+
+TODO: Go over doxygen documentation and make sure it's ready to push
+TODO: Make sure we have the right github repo
 
 TODO: Note to developers what part of the code they need to work with to
 do what they want to do. E.g. new data formats mean working with Packet, 
@@ -17,12 +26,3 @@ different network interfaces mean working with NetworkInterface
       - Work will need to be done to make sure that necessary info gets from
         getDeviceList() to Listener::create(). Probably rewrite Device to be
         an abstract base class.
-
-# TODO: Does NetworkInterface actually need to be abstract if the interface
-#       implementation is set at compile time?
-#         - The abstract class is only useful if the interface is set at
-#           runtime. That can be done -- see:
-#           https://stackoverflow.com/a/9039693
-#         - Actually, nvm. We need to hide private data members from the
-#           interface, which means we either PIMPL or use an abstract
-#           base class.

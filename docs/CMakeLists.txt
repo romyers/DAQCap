@@ -10,7 +10,7 @@ if(BUILD_INTERNAL_DOCS)
         docs 
         ${CMAKE_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_SOURCE_DIR}/mainpage.md
+        ${CMAKE_CURRENT_SOURCE_DIR}/README.md
         ${CMAKE_CURRENT_SOURCE_DIR}/Developer_Notes.md
         COMMENT "Generate documentation"
     )
@@ -20,7 +20,7 @@ else()
     doxygen_add_docs(
         docs 
         ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}/mainpage.md
+        ${CMAKE_CURRENT_SOURCE_DIR}/README.md
         COMMENT "Generate documentation"
     )
 

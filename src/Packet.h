@@ -35,11 +35,6 @@ namespace DAQCap {
         static const std::vector<uint8_t> IDLE_WORD;
 
         /**
-         * @brief Constructs a null packet with no data.
-         */
-        Packet();
-
-        /**
          * @brief Constructs a packet from the given data.
          * 
          * @param raw_data A pointer to the raw packet data, stored as an array
@@ -110,12 +105,6 @@ namespace DAQCap {
          * packets.
          */
         static int packetsBetween(const Packet &first, const Packet &second);
-
-        /**
-         * @brief Converts the packet to a boolean value. Returns true if the
-         * packet is not null, and false otherwise.
-         */
-        explicit operator bool() const;
 
     private:
 

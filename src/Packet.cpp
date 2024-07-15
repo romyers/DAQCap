@@ -23,13 +23,6 @@ const size_t Packet::WORD_SIZE = 5;
 
 const vector<uint8_t> Packet::IDLE_WORD 
     = vector<uint8_t>(Packet::WORD_SIZE, 0xFF);
-    
-Packet::Packet() : packetNumber(0) {
-
-    // A 0 ID denotes a null packet
-    ID = 0;
-
-}
         
 Packet::Packet(const uint8_t *raw_data, size_t size) : packetNumber(0) {
 
@@ -68,13 +61,6 @@ Packet::Packet(const uint8_t *raw_data, size_t size) : packetNumber(0) {
 
     ID = counter;
     ++counter;
-
-}
-
-
-Packet::operator bool() const {
-
-    return ID != 0;
 
 }
 

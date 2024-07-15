@@ -16,6 +16,10 @@ typedef struct pcap pcap_t;
 
 namespace DAQCap {
 
+    /**
+     * @brief Implementation of a DAQCap::Device for libpcap. See
+     * DAQCapDevice.h::Device for documentation.
+     */
     class PCapDevice : public Device {
 
     public:

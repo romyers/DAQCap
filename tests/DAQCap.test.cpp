@@ -5,6 +5,7 @@
 
 #include <thread>
 #include <numeric>
+#include <sstream>
 
 using std::vector;
 using std::string;
@@ -17,12 +18,6 @@ const size_t WORD_SIZE = 5;
 
 const size_t PRELOAD = 14;
 const size_t POSTLOAD = 4;
-
-// TODO: We can singleton this and use it to get info out of MockManagers
-//       created by the create() function.
-
-// TODO: All that's left really is to write these tests and write some
-//       integration tests for the standalone program.
 
 class MockDevice : public Device {
 
@@ -195,7 +190,7 @@ vector<Packet> MockManager::fetchPackets(int packetsToRead) {
 
     }
     
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
 
     vector<Packet> temp = mock->packets;
 
@@ -513,7 +508,10 @@ TEST_CASE("SessionHandler::fetchData()") {
 
     SECTION("fetchData() correctly handles empty packets") {
 
-        g_devices[0]->packets.push_back(Packet());
+        g_devices[0]->packets.emplace_back(
+            std::vector<uint8_t>(PRELOAD + POSTLOAD, 0).data(), 
+            PRELOAD + POSTLOAD
+        );
 
         DataBlob blob = handler.fetchData();
 
@@ -649,9 +647,15 @@ TEST_CASE("SessionHandler::fetchData()") {
     SECTION("fetchData() times out if it takes too long") {
 
         REQUIRE_THROWS_AS(
-            handler.fetchData(std::chrono::milliseconds(5)), 
+            handler.fetchData(std::chrono::milliseconds(1)), 
             timeout_exception
         );
+
+    }
+
+    SECTION("fetchData() does not time out if it's fast enough") {
+
+        REQUIRE_NOTHROW(handler.fetchData(std::chrono::milliseconds(10)));
 
     }
 
@@ -863,26 +867,6 @@ TEST_CASE("SessionHandler::fetchData()") {
 
         }
 
-        SECTION("fetchData() does not remove idle words when told not to") {
-
-            size_t packetSize = WORD_SIZE;
-            size_t size = PRELOAD + POSTLOAD + packetSize;
-
-            handler.includeIdleWords(true);
-
-            vector<uint8_t> data (size, 0xFF);
-
-            g_devices[0]->packets.emplace_back(data.data(), data.size());
-
-            DataBlob blob = handler.fetchData();
-
-            REQUIRE(blob.packetCount() == 1);
-            REQUIRE(blob.data().size() == WORD_SIZE);    
-
-            handler.includeIdleWords(false);    
-
-        }
-
         SECTION("fetchData() removes idle words across packet boundaries") {
 
             size_t packetSize = WORD_SIZE;
@@ -960,6 +944,32 @@ TEST_CASE("SessionHandler::fetchData()") {
 
             }
 
+        }
+
+    }
+
+    SECTION("fetchData() stream insertion") {
+
+        size_t packetSize = WORD_SIZE;
+        size_t size = PRELOAD + POSTLOAD + packetSize;
+
+        vector<uint8_t> data (size, 0);
+
+        std::iota(data.begin() + PRELOAD, data.end() - POSTLOAD, 0);
+
+        Packet packet(data.data(), data.size());
+
+        g_devices[0]->packets.push_back(packet);
+
+        std::stringstream ss;
+
+        ss << handler.fetchData();
+
+        REQUIRE(ss.str().size() == packetSize);
+
+        for(int i = 0; i < ss.str().size(); ++i) {
+
+            REQUIRE(ss.str()[i] == i);
 
         }
 

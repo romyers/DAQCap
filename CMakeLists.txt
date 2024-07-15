@@ -5,7 +5,7 @@ project(DAQCap
     LANGUAGES C CXX
 )
 
-OPTION(BUILD_EXAMPLES "Build the Example Program" OFF)
+OPTION(BUILD_EXE "Build the executable ecap program" OFF)
 OPTION(BUILD_TESTING "Build the Test Suite" OFF)
 
 include(FetchContent)
@@ -30,17 +30,25 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         message(STATUS "Doxygen not found, not building documentation")
     endif()
 
+    # Build tests
     if(BUILD_TESTING)
+    
         include(CTest)
         add_subdirectory(tests)
+
+    endif()
+
+    # Build examples
+    if(BUILD_EXE)
+
+        add_subdirectory(examples)
+
     endif()
 
 endif()
 
 # Point CMAKE at the project directory for modules
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules/")
-
-# TODO: Test what happens if pcap isn't preinstalled
 
 # Find libpcap, and fetch it if it's not found
 find_package(PCAP REQUIRED)
@@ -62,7 +70,6 @@ endif()
 # If we found libpcap, build the corresponding network interface library
 if(PCAP_FOUND)
 
-    # TODO: Have I done this correctly?
     add_library(
         PCap_Interface
         STATIC
@@ -77,15 +84,6 @@ endif()
 # TODO: Look at this for debug logging:
 #       https://www.reddit.com/r/cpp_questions/comments/obndlq/help_use_cmake_to_define_and_test_preprocessor/
 
-# TODO: I want a clean way to swap out network interface implementations. So
-#       I'd like the DAQCap library not to include the pcap version, and link
-#       it to whatever implementation is relevant. So link to one
-#       implementation when compiling the tests, and another when compiling
-#       the examples or exposing the library to clients. I don't want clients
-#       to have to explicitly link the implementations.
-#       Look at this related to ^:
-#       https://discourse.cmake.org/t/get-a-cmake-macro-to-use-in-a-condition/7761/4
-
 # TODO: Make sure that both ways of including libpcap get linked to correctly
 
 # Build the library
@@ -94,18 +92,10 @@ add_library(
     STATIC
     src/DAQCap.cpp 
     src/DAQBlob.cpp
-    src/DAQSession_impl.cpp
     src/Packet.cpp
 )
 target_include_directories(DAQCap PUBLIC include)
 if(PCAP_FOUND)
     target_compile_definitions(DAQCap PRIVATE PCAP=1)
     target_link_libraries(DAQCap PRIVATE PCap_Interface)
-endif()
-
-# Build examples
-if(BUILD_EXAMPLES)
-
-    add_subdirectory(examples)
-
 endif()

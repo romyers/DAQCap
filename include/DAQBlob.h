@@ -65,6 +65,21 @@ namespace DAQCap {
          */
         std::vector<std::string> warnings() const;
 
+        /**
+         * @brief An iterator used to traverse the blob's data
+         */
+        typedef std::vector<uint8_t>::const_iterator const_iterator;
+
+        /**
+         * @brief Returns a const iterator to the beginning of the data.
+         */
+        const_iterator cbegin() const;
+
+        /**
+         * @brief Returns a const iterator to the end of the data.
+         */
+        const_iterator cend() const;
+
     private:
 
         int packets = 0;
@@ -76,5 +91,14 @@ namespace DAQCap {
         friend class SessionHandler;
 
     };
+
+    /**
+     * @brief Stream insertion operator for DataBlob. Writes the miniDAQ data
+     * to the stream with no padding or metadata.
+     */
+    std::ostream &operator<<(
+        std::ostream &os, 
+        const DataBlob &blob
+    );
 
 }

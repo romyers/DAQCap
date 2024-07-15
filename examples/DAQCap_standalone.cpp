@@ -2,7 +2,10 @@
  * @file p2ecap_standalone.cpp
  *
  * @brief A standalone program that captures miniDAQ data from a network device
- * and writes it to a file.
+ * and writes it to a .dat file.
+ * 
+ * DAT files are binary files containing raw miniDAQ data with no padding or
+ * metadata.
  *
  * @author Robert Myers
  * Contact: romyers@umich.edu
@@ -218,8 +221,8 @@ int main(int argc, char **argv) {
     std::atomic<bool> running(true);
 
     // NOTE: handler->interrupt() is threadsafe, so we don't need a mutex
-    // NOTE: We have to store the future or it will be destroyed and the
-    //       destructor will block until the thread finishes
+    // NOTE: We have to store the future or its destructor will block the
+    //       main thread until the input thread finishes
     auto future = std::async(
         std::launch::async,
         [&handler, &running]() {
@@ -254,7 +257,7 @@ int main(int argc, char **argv) {
 
         try {
 
-            blob = handler.fetchData(std::chrono::seconds(1));
+            blob = handler.fetchData(std::chrono::minutes(1));
 
         } catch(const DAQCap::timeout_exception &t) {
 
@@ -276,8 +279,7 @@ int main(int argc, char **argv) {
 
         }
 
-		fileWriter.write((char*)blob.data().data(), blob.data().size());
-		fileWriter.flush();
+        fileWriter << blob << std::flush;
 
 		packets += blob.packetCount();
 
@@ -499,11 +501,19 @@ void printDeviceList(
 
 void printHelp(std::ostream &os) {
 
-    os << "Usage: p2ecap_standalone [-o output_path] [-d device_name]"
-       << " [-m max_packets] [-h]"
+    os << "A standalone program that captures miniDAQ data from a network\n"
+       << "device and writes it to a .dat file.\n"
+       << endl;
+
+    os << "Usage:" << endl; 
+    os << "p2ecap_standalone [-o output_path] [-d device_name]"
+       << " [-m max_packets] [-h]\n"
        << endl;
 
     os << "Options:"
+       << endl;
+
+    os << "\t-h, --help        Display this help message."
        << endl;
 
     os << "\t-o, --out         Path to the output directory."
@@ -512,10 +522,11 @@ void printHelp(std::ostream &os) {
     os << "\t-d, --device      Name of the network device to listen on."
        << endl;
 
-    os << "\t-m, --max-packets Maximum number of packets to capture."
-       << endl;
-
-    os << "\t-h, --help        Display this help message."
+    os << "\t-m, --max-packets Maximum number of packets to capture. Once\n"
+       << "\t                  max-packets are captured, the program will\n"
+       << "\t                  finish capturing the current buffer and exit.\n"
+       << "\t                  Up to a bufferful of packets past max-packets\n"
+       << "\t                  may be captured."
        << endl;
 
 }

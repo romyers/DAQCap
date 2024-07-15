@@ -17,6 +17,9 @@
 #include <string>
 #include <chrono>
 
+// TODO: Ask Yuxiang about the phase 1 packet format. I'd like to be able to
+//       support phase 1 and phase 2 systems.
+
 namespace DAQCap {
 
     extern const int ALL_PACKETS;
@@ -32,11 +35,8 @@ namespace DAQCap {
     /**
      * @brief Manages a session with a network device. 
      * 
-     * The SessionHandler class provides a high-level interface for fetching
-     * data from a network device. One SessionHandler should correspond to one
-     * data capture session on one network device. If you need to capture data
-     * from multiple devices, or in multiple sessions, you should create a
-     * separate SessionHandler for each device or session.
+     * The SessionHandler class provides a high-level interface for interacting
+     * with and reading from network devices.
      * 
      * @note This class is not thread-safe. Do not concurrently fetch packets
      * from two different threads, even if they are using different devices.
@@ -51,7 +51,6 @@ namespace DAQCap {
         SessionHandler();
         ~SessionHandler();
 
-        // TODO: Perhaps a reloadDeviceCache() method would be useful.
         /**
          * @brief Gets a network device by name.
          * 
@@ -92,7 +91,7 @@ namespace DAQCap {
          * 
          * @note Calling startSession() on a SessionHandler that is already
          * in the middle of a session will close the current session and start
-         * a new one.
+         * a new one. This will interrupt any concurrent calls to fetchData().
          * 
          * @throws std::runtime_error if the device does not exist or could not
          * be initialized.
@@ -115,11 +114,12 @@ namespace DAQCap {
          * 
          * Waits for data to arrive on the network device associated with this
          * SessionHandler, then returns a DataBlob containing the data together
-         * with the packet count and any warnings that were generated.
+         * with the packet count and any warnings that were generated. Any idle
+         * data words are excluded.
          * 
          * If timeout is FOREVER, fetchData() will wait indefinitely for
-         * data to arrive. Otherwise it will wait timeout milliseconds,
-         * and throw a timeout_exception if no data arrives in that time.
+         * data to arrive. Otherwise it will abort with a timeout_exception
+         * if no data arrives within the specified time.
          * 
          * If packetsToRead is ALL_PACKETS, fetchData() will read all data
          * that arrives in the current buffer. Otherwise it will read 
@@ -129,6 +129,10 @@ namespace DAQCap {
          * If the SessionHandler is configured to exclude idle packets, idle
          * packets are excluded from the data blob's data vector, but included
          * in the packet count.
+         * 
+         * REQUIRES: 
+         *   - timeout >= 0 || timeout == FOREVER
+         *   - packetsToRead >= 0 || packetsToRead == ALL_PACKETS
          * 
          * @note A session must have been started with startSession() before
          * calling fetchData().
@@ -159,21 +163,19 @@ namespace DAQCap {
             int packetsToRead = ALL_PACKETS
         );
 
-        /**
-         * @brief Sets whether the session handler should include idle words
-         * when fetching packets. False by default.
-         * 
-         * @param discard True to include idle words, false to ignore them.
-         */
-        void includeIdleWords(bool discard);
-
         SessionHandler(const SessionHandler &other)            = delete;
         SessionHandler &operator=(const SessionHandler &other) = delete;
 
     private:
 
-        class SessionHandler_impl;
-        SessionHandler_impl *impl = nullptr;
+        std::unique_ptr<class NetworkManager> netManager;
+
+        std::unique_ptr<class Packet> lastPacket;
+
+        std::vector<std::shared_ptr<Device>> networkDeviceCache;
+
+        // Buffer for unfinished data words at the end of a packet
+        std::vector<uint8_t> unfinishedWords;
 
     };
 

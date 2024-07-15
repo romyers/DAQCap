@@ -3,9 +3,11 @@
 #include "Packet.h"
 
 #include <stdexcept>
+#include <iostream>
 
 using std::vector;
 using std::string;
+using std::ostream;
 
 using namespace DAQCap;
 
@@ -58,5 +60,25 @@ vector<Word> DAQCap::packData(const vector<uint8_t> &data) {
     }
 
     return packedData;
+
+}
+
+DataBlob::const_iterator DataBlob::cbegin() const {
+
+    return dataBuffer.cbegin();
+
+}
+
+DataBlob::const_iterator DataBlob::cend() const {
+
+    return dataBuffer.cend();
+
+}
+
+ostream &DAQCap::operator<<(ostream &os, const DataBlob &blob) {
+
+    os.write((char*)blob.data().data(), blob.data().size());
+
+    return os;
 
 }

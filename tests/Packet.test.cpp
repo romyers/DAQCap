@@ -13,34 +13,6 @@ const size_t PRELOAD                = 14   ;
 const size_t POSTLOAD               = 4    ;
 const size_t WORD_SIZE              = 5    ;
 
-// NOTE: This test case must be first, and no packets may be instantiated
-//       before it.
-TEST_CASE("First packet is not null", "[Packet]") {
-
-    uint8_t data[PRELOAD + POSTLOAD];
-
-    Packet packet(data, PRELOAD + POSTLOAD);
-
-    REQUIRE(packet);
-
-}
-
-TEST_CASE("Default packet is null", "[Packet]") {
-
-    Packet packet;
-
-    REQUIRE(!packet);
-
-}
-
-TEST_CASE("Default packet has packet number 0", "[Packet]") {
-
-    Packet packet;
-
-    REQUIRE(packet.getPacketNumber() == 0);
-
-}
-
 TEST_CASE("Packet constructor", "[Packet]") {
 
     SECTION("Packet constructor throws an exception if the size is too small") {

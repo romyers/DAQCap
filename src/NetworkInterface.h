@@ -11,9 +11,10 @@
 
 #include "Packet.h"
 
+#include <DAQCapDevice.h>
+
 #include <string>
 #include <vector>
-#include <DAQCapDevice.h>
 
 namespace DAQCap {
 
@@ -59,7 +60,8 @@ namespace DAQCap {
         virtual void startSession(const std::shared_ptr<Device> device) = 0;
 
         /**
-         * @brief Ends a capture session on the current device.
+         * @brief If a capture session is in progress, ends it. Otherwise
+         * does nothing.
          */
         virtual void endSession() = 0;
 
