@@ -1,5 +1,7 @@
 \page Developer Notes
 
+# Developer Notes
+
 TODO: Discuss:
   Packet
   NetworkManager

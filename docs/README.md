@@ -1,8 +1,6 @@
 \mainpage
 \tableofcontents
 
-TODO: pthread linking
-
 # DAQCap -- ATLAS MiniDAQ Data Capture Library
 
 This library provides tools for capturing data from miniDAQ MDT and
@@ -15,7 +13,11 @@ This library was developed for Linux, and requires C++11 support or better.
 Windows and MacOS environments have not been tested.
 
 DAQCap is based on
-[libpcap](https://github.com/the-tcpdump-group/libpcap/tree/master).
+[libpcap](https://github.com/the-tcpdump-group/libpcap/tree/master),
+and expects libpcap version 1.10.0 or later. Earlier versions may work, but
+some functionality (e.g. DAQCap::SessionHandler::interrupt()) may not work
+as intended.
+
 If libpcap is not present, it will be installed during the build process.
 Installing libpcap requires:
   - [Flex](https://github.com/westes/flex) version 2.5.31 or later.
@@ -82,7 +84,9 @@ And include the header in your source files:
 ## Usage
 
 To use this library, link it to your executable and include the `DAQCap.h` 
-header in your source files.
+header in your source files. You may also need to link a threading library,
+such as pthread. See [examples/CMakelists.txt](../examples/CMakeLists.txt) for
+an example of how to do this.
 
 Any executable using this library on Linux must have CAP_NET_RAW file 
 capabilities:

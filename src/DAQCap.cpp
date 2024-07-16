@@ -60,7 +60,7 @@ void SessionHandler::startSession(const shared_ptr<Device> device) {
 
 void SessionHandler::endSession() { 
 
-    netManager->interrupt();
+    interrupt();
     netManager->endSession();
 
     unfinishedWords.clear();

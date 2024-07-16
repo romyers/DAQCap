@@ -56,19 +56,25 @@ string PCapDevice::getDescription() const {
     return description;
 
 }
-
 PCapManager::PCapManager() {
+    
+    // Some older versions of libpcap don't support this init function. We can
+    // catch that by checking if PCAP_CHAR_ENC_LOCAL is defined.
+    #if defined(PCAP_CHAR_ENC_LOCAL)
 
-    static bool initialized = false;
+        static bool initialized = false;
 
-    if(!initialized) {
+        // NOTE: pcap_init doesn't work for older versions of libpcap
+        if(!initialized) {
 
-        char errorbuf[PCAP_ERRBUF_SIZE];
+            char errorbuf[PCAP_ERRBUF_SIZE];
 
-        initialized = true;
-        pcap_init(PCAP_CHAR_ENC_LOCAL, errorbuf);
+            initialized = true;
+            pcap_init(PCAP_CHAR_ENC_LOCAL, errorbuf);
 
-    }
+        }
+
+    #endif
 
 }
 
@@ -89,10 +95,33 @@ void PCapManager::endSession() {
 
 void PCapManager::interrupt() {
 
-    // FIXME: This does not unblock the capture thread on all systems or on
-    //        older versions of libpcap
+    // NOTE: This does not unblock pcap_dispatch() for versions of
+    //       libpcap earlier than 1.10.0 or for systems other than
+    //       Linux or Windows. We need to use a different interrupt
+    //       solution in these cases.
 
-    if(handler) pcap_breakloop(handler);
+    if(handler) {
+
+        // These OSes allow pcap_breakloop to wake up the pcap_dispatch thread
+        #if defined(__linux__) || defined(_WIN32) || defined(_WIN64)
+
+            // I *think* this was first introduced in 1.10.0, so it should work
+            // as a way to check that we are running 1.10.0 or later.
+            #ifdef PCAP_CHAR_ENC_LOCAL
+
+                pcap_breakloop(handler);
+
+            #endif
+
+        #endif
+
+        // TODO: Document that we can't interrupt on this platform or
+        //       find another way to do it. We could consider e.g.
+        //       sending a special packet and catching that in the
+        //       listen function. We have to make sure that sending
+        //       the packet won't interfere with the miniDAQ though.
+
+    }
 
 }
 
@@ -108,18 +137,7 @@ void PCapManager::startSession(const shared_ptr<Device> device) {
 
     char errorBuffer[PCAP_ERRBUF_SIZE];
 
-    // Arguments: device name, 
-    //            snap length, 
-    //            promiscuous mode, 
-    //            to_ms, 
-    //            error_buffer
-    handler = pcap_open_live(
-        device->getName().data(), 
-        65536, 
-        1, 
-        10000, 
-        errorBuffer
-    );
+    handler = pcap_create(device->getName().data(), errorBuffer);
     if(!handler) {
 
         handler = nullptr;
@@ -130,6 +148,20 @@ void PCapManager::startSession(const shared_ptr<Device> device) {
         );
 
     }
+
+    pcap_set_snaplen(handler, 65536);
+    pcap_set_promisc(handler, 1);
+    
+    // With immediate_mode on, packets are delivered to the application as soon
+    // as they are received. With immediate_mode off, packets are buffered 
+    // until the buffer is full or a timeout occurs.
+    pcap_set_immediate_mode(handler, 1);
+    pcap_set_timeout(handler, 10000); // This does not work on every OS
+
+    // TODO: With immediate_mode, is there really a reason to use pcap_dispatch
+    //       instead of just getting packets one at a time?
+
+    pcap_activate(handler);
 
     // Compile the filter
     struct bpf_program fcode;

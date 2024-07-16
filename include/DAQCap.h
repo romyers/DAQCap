@@ -17,6 +17,11 @@
 #include <string>
 #include <chrono>
 
+/**
+ * @brief The library version.
+ */
+#define DAQCAP_VERSION "1.0.0"
+
 // TODO: Ask Yuxiang about the phase 1 packet format. I'd like to be able to
 //       support phase 1 and phase 2 systems.
 
@@ -106,6 +111,10 @@ namespace DAQCap {
 
         /**
          * @brief Thread-safe method that interrupts calls to fetchData().
+         * 
+         * @note This function is supported for Linux and Windows and for
+         * libpcap versions 1.10.0 and later. For other platforms or versions,
+         * this function will have no effect.
          */
         void interrupt();
 
@@ -145,6 +154,10 @@ namespace DAQCap {
          * @param timeout The maximum time to wait for data to arrive, in
          * milliseconds. If timeout is FOREVER, fetchData() will wait
          * indefinitely for data to arrive.
+         * 
+         * Timeouts are supported only for Windows and Linux and for libpcap
+         * versions 1.10.0 and later. For other platforms or versions, this
+         * timeout will be ignored.
          * 
          * @param packetsToRead The number of packets to read in this call to
          * fetchData(). If packetsToRead is ALL_PACKETS, all packets in

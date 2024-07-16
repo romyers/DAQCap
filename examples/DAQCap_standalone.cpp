@@ -205,6 +205,7 @@ int main(int argc, char **argv) {
 	cout << "Starting run: " << runLabel << endl; 
 	cout << "Saving packet data to: " 
               << outputFile 
+              << endl
               << endl;
 
     ///////////////////////////////////////////////////////////////////////////
@@ -215,6 +216,8 @@ int main(int argc, char **argv) {
     int consecutiveErrors = 0;
 
 	while(packets < args.maxPackets) {
+
+        cout << "\rRecorded " << packets << " packets" << std::flush;
 
         if(consecutiveErrors > 5) {
 
@@ -254,8 +257,6 @@ int main(int argc, char **argv) {
         fileWriter << blob << std::flush;
 
 		packets += blob.packetCount();
-
-        cout << "\rRecorded " << packets << " packets" << std::flush;
 
         consecutiveErrors = 0;
 
