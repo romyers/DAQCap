@@ -33,7 +33,6 @@ vector<string> DataBlob::warnings() const {
 vector<Word> DAQCap::packData(const vector<uint8_t> &data) {
 
     vector<uint64_t> packedData;
-
     packedData.reserve(data.size() / Packet::WORD_SIZE);
 
     // NOTE: Since data.size() and Packet::WORD_SIZE are unsigned, we need to

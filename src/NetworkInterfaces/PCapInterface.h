@@ -47,7 +47,7 @@ namespace DAQCap {
 
     public:
 
-        PCapManager() = default;
+        PCapManager();
         virtual ~PCapManager();
 
         // NOTE: getAllDevices() could be decoupled from everything else for 
@@ -58,8 +58,6 @@ namespace DAQCap {
         virtual std::vector<std::shared_ptr<Device>> getAllDevices() override;
         virtual void startSession(const std::shared_ptr<Device> device) override;
         virtual void endSession() override;
-
-        virtual bool hasOpenSession() override;
 
         PCapManager(const PCapManager &other)            = delete;
         PCapManager &operator=(const PCapManager &other) = delete;

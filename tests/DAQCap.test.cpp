@@ -50,8 +50,6 @@ public:
 
     void startSession(const shared_ptr<Device> device) override;
 
-    bool hasOpenSession() override;
-
     void endSession() override;
 
     void interrupt() override;
@@ -116,7 +114,7 @@ MockManager::~MockManager() {
 
 void MockManager::startSession(const shared_ptr<Device> device) {
 
-    if(hasOpenSession()) {
+    if(sessionOpen) {
 
         throw std::logic_error(
             "MockManager::startSession() cannot be called while another "
@@ -150,12 +148,6 @@ void MockManager::startSession(const shared_ptr<Device> device) {
 
 }
 
-bool MockManager::hasOpenSession() {
-
-    return sessionOpen;
-
-}
-
 void MockManager::endSession() {
 
     sessionOpen = false;
@@ -171,6 +163,12 @@ void MockManager::interrupt() {
 
 vector<Packet> MockManager::fetchPackets(int packetsToRead) {
 
+    if(!sessionOpen) {
+
+        throw std::runtime_error("No open session");
+
+    }
+
     if(mock->throwEverything) {
 
         throw std::runtime_error("MockManager::fetchPackets()");
@@ -181,12 +179,6 @@ vector<Packet> MockManager::fetchPackets(int packetsToRead) {
 
         interrupted = false;
         return vector<Packet>();
-
-    }
-
-    if(!hasOpenSession()) {
-
-        throw std::runtime_error("No open session");
 
     }
     

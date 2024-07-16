@@ -33,10 +33,6 @@ using std::endl;
 using DAQCap::Device;
 using DAQCap::SessionHandler;
 
-class user_interrupt : public std::runtime_error {
-    using std::runtime_error::runtime_error;
-};
-
 // Holds the command-line arguments
 struct Arguments {
 
@@ -100,8 +96,19 @@ int main(int argc, char **argv) {
     SessionHandler handler;
 
     // Check for the device specified by the user, if applicable
-    shared_ptr<Device> device 
-        = handler.getNetworkDevice(args.deviceName);
+    shared_ptr<Device> device;
+    try {
+
+        device = handler.getNetworkDevice(args.deviceName);
+
+    } catch(const std::exception &e) {
+
+        cerr << e.what() << endl;
+        cout << "Exiting..." << endl;
+
+        return 1;
+
+    }
 
     // If we don't have a device yet, prompt the user for one
     if(!device) {
@@ -139,16 +146,7 @@ int main(int argc, char **argv) {
         printDeviceList(cout, devices);
 
         // Prompt the user to select a device
-        try {
-
-            device = promptForDevice(devices);
-            
-        } catch(const user_interrupt &e) {
-
-            cout << "No device selected. Exiting..." << endl;
-            return 0;
-
-        }
+        device = promptForDevice(devices);
 
     }
 
@@ -213,9 +211,17 @@ int main(int argc, char **argv) {
     // Fetch packets and write to file
     ///////////////////////////////////////////////////////////////////////////
 
-	int packets   = 0;
+	int packets = 0;
+    int consecutiveErrors = 0;
 
-	while(true) {
+	while(packets < args.maxPackets) {
+
+        if(consecutiveErrors > 5) {
+
+            cerr << "Too many consecutive errors. Exiting..." << endl;
+            break;
+
+        }
 
         DAQCap::DataBlob blob;
 
@@ -233,6 +239,8 @@ int main(int argc, char **argv) {
 
             cerr << e.what() << endl;
 
+            ++consecutiveErrors;
+
             continue; 
 
         }
@@ -249,11 +257,7 @@ int main(int argc, char **argv) {
 
         cout << "\rRecorded " << packets << " packets" << std::flush;
 
-        if(packets >= args.maxPackets) {
-
-            break;
-
-        }
+        consecutiveErrors = 0;
 
 	}
 
@@ -280,17 +284,9 @@ shared_ptr<Device> promptForDevice(
     string selection;
     do {
 
-        cout << "Select a device (1-" << devices.size() << ")";
-        cout << " or select 'q' to quit: ";
+        cout << "Select a device (1-" << devices.size() << "): ";
 
         std::getline(cin, selection);
-
-        // Throw an exception if the user wants to quit
-        if(selection == "q" || selection == "quit" || selection == "exit") {
-
-            throw user_interrupt("User quit.");
-
-        }
 
         try {
 

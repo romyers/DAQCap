@@ -43,20 +43,7 @@ void SessionHandler::startSession(const shared_ptr<Device> device) {
 
     }
 
-    bool exists = false;
-    for(const shared_ptr<Device> d : netManager->getAllDevices()) {
-
-        if(device->getName() == d->getName()) {
-
-            exists = true;
-
-            break;
-
-        }
-
-    }
-
-    if(!exists) {
+    if(!getNetworkDevice(device->getName())) {
 
         throw std::runtime_error(
             "Device " + device->getName() + " does not exist."
@@ -64,12 +51,8 @@ void SessionHandler::startSession(const shared_ptr<Device> device) {
 
     }
 
-    // Close the current session if there is one
-    if(netManager->hasOpenSession()) {
-
-        endSession();
-
-    }
+    // End any existing session
+    endSession();
 
     netManager->startSession(device);
 
@@ -125,14 +108,8 @@ DataBlob SessionHandler::fetchData(
     std::chrono::milliseconds timeout, 
     int packetsToRead
 ) { 
-    
-    if(!netManager->hasOpenSession()) {
 
-        throw std::logic_error(
-            "Must start a session before fetching data."
-        );
-
-    }
+    DataBlob blob;
 
     ///////////////////////////////////////////////////////////////////////////
     // Run a task that listens for packets
@@ -158,7 +135,7 @@ DataBlob SessionHandler::fetchData(
         ) == std::future_status::timeout
     ) {
 
-        // This will force the netManager to return early
+        // This should force the netManager to return early
         interrupt();
 
         throw timeout_exception(
@@ -184,14 +161,6 @@ DataBlob SessionHandler::fetchData(
         throw std::runtime_error(
             string("Failed to fetch packets: ") + e.what()
         );
-
-    }
-
-    DataBlob blob;
-
-    if(packets.empty()) {
-
-        return blob;
 
     }
 
@@ -237,12 +206,16 @@ DataBlob SessionHandler::fetchData(
     blob.packets = packets.size();
 
     vector<uint8_t> data;
+
+    // Put any unfinished words at the start of data, and clear unfinishedWords
+    // at the same time.
     std::swap(data, unfinishedWords);
 
     // This likely won't hold everything, but it will eliminate some extraneous
     // reallocations.
     data.reserve(packets.size() * Packet::WORD_SIZE);
 
+    // Unwind packets into data
     for(const Packet &packet : packets) {
 
         data.insert(
@@ -253,7 +226,13 @@ DataBlob SessionHandler::fetchData(
 
     }
 
+    // Now data should start at the beginning of a word, so we can use that
+    // invariant to scan it for idle words. Any word that isn't idle is
+    // added to the blob.
+
     blob.dataBuffer.reserve(data.size());
+
+    // Scan through each word.
     auto iter = data.cbegin();
     for(
         ;
@@ -261,6 +240,7 @@ DataBlob SessionHandler::fetchData(
         iter += Packet::WORD_SIZE
     ) {
 
+        // Check if the word is idle.
         if(
             Packet::IDLE_WORD.empty() || // If so, there is no idle word
             !std::equal(
@@ -270,6 +250,7 @@ DataBlob SessionHandler::fetchData(
             )
         ) {
 
+            // If it isn't add it to the blob.
             blob.dataBuffer.insert(
                 blob.dataBuffer.end(),
                 iter,
@@ -280,6 +261,7 @@ DataBlob SessionHandler::fetchData(
 
     }
 
+    // Add the remainder from data to unfinishedWords
     unfinishedWords.insert(
         unfinishedWords.end(),
         iter,

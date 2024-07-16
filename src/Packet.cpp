@@ -56,8 +56,7 @@ Packet::Packet(const uint8_t *raw_data, size_t size) : packetNumber(0) {
         raw_data + size - POSTLOAD_BYTES
     );
 
-    // A 0 ID denotes a null packet, so real packets should start at 1
-    static unsigned long counter = 1;
+    static unsigned long counter = 0;
 
     ID = counter;
     ++counter;
@@ -106,7 +105,7 @@ uint8_t Packet::operator[](size_t index) const {
 
 int Packet::packetsBetween(const Packet &first, const Packet &second) {
 
-    // This makes sure that first is always the packet that came first.
+    // This makes sure that first is always the older packet
     if(first.ID > second.ID) {
 
         return packetsBetween(second, first);

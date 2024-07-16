@@ -44,11 +44,6 @@ namespace DAQCap {
         virtual std::vector<std::shared_ptr<Device>> getAllDevices() = 0;
 
         /**
-         * @brief Returns true if a session is currently open, false otherwise.
-         */
-        virtual bool hasOpenSession() = 0;
-
-        /**
          * @brief Begins a capture session on the specified device, and prepares
          * the NetworkManager to fetch data from it.
          * 

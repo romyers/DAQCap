@@ -23,21 +23,6 @@ unique_ptr<NetworkManager> NetworkManager::create() {
 
 }
 
-PCapDevice::PCapDevice(string name, string description):
-    name(name), description(description) {}
-
-string PCapDevice::getName() const {
-
-    return name;
-
-}
-
-string PCapDevice::getDescription() const {
-
-    return description;
-
-}
-
 // Global packet buffer we can use to get data out of the fetchPackets() 
 // function. It's reallllllly nontrivial to get pcap_dispatch() to read 
 // data into a class member, so we have to use this global buffer instead. 
@@ -57,8 +42,35 @@ void listen_callback(
     const u_char *packet_data
 );
 
-// A concrete class we'll be returning as a NetworkManager* from the factory 
-// function
+PCapDevice::PCapDevice(string name, string description):
+    name(name), description(description) {}
+
+string PCapDevice::getName() const {
+
+    return name;
+
+}
+
+string PCapDevice::getDescription() const {
+
+    return description;
+
+}
+
+PCapManager::PCapManager() {
+
+    static bool initialized = false;
+
+    if(!initialized) {
+
+        char errorbuf[PCAP_ERRBUF_SIZE];
+
+        initialized = true;
+        pcap_init(PCAP_CHAR_ENC_LOCAL, errorbuf);
+
+    }
+
+}
 
 PCapManager::~PCapManager() {
 
@@ -75,13 +87,10 @@ void PCapManager::endSession() {
 
 }
 
-bool PCapManager::hasOpenSession() {
-
-    return handler != nullptr;
-
-}
-
 void PCapManager::interrupt() {
+
+    // FIXME: This does not unblock the capture thread on all systems or on
+    //        older versions of libpcap
 
     if(handler) pcap_breakloop(handler);
 
@@ -89,11 +98,10 @@ void PCapManager::interrupt() {
 
 void PCapManager::startSession(const shared_ptr<Device> device) {
 
-    if(hasOpenSession()) {
+    if(handler) {
 
         throw std::logic_error(
-            "PCapManager::startSession() cannot be called while another "
-            "session is open."
+            "Cannot start a new session while another session is in progress."
         );
 
     }
@@ -161,6 +169,14 @@ void PCapManager::startSession(const shared_ptr<Device> device) {
 }
 
 vector<Packet> PCapManager::fetchPackets(int packetsToRead) {
+
+    if(!handler) {
+
+        throw std::logic_error(
+            "Data cannot be fetched without an open session."
+        );
+
+    }
 
     g_packetBuffer.clear();
     int ret = pcap_dispatch(
