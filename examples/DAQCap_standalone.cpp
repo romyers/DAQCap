@@ -13,12 +13,10 @@
 
 #include <DAQCap.h>
 
-#include <iostream>
 #include <cstring>
-#include <fstream>
-#include <mutex>
 #include <algorithm>
-#include <future>
+#include <iostream>
+#include <fstream>
 
 #include <getopt.h>
 
@@ -210,48 +208,14 @@ int main(int argc, char **argv) {
 	cout << "Saving packet data to: " 
               << outputFile 
               << endl;
-    cout << "Enter 'q' to quit." << endl;
-    cout << endl;
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Asynchronously listen for user to quit
-    ///////////////////////////////////////////////////////////////////////////
-
-    // Makes this threadsafe
-    std::atomic<bool> running(true);
-
-    // NOTE: handler->interrupt() is threadsafe, so we don't need a mutex
-    // NOTE: We have to store the future or its destructor will block the
-    //       main thread until the input thread finishes
-    auto future = std::async(
-        std::launch::async,
-        [&handler, &running]() {
-
-            string input;
-            while(running) {
-
-                std::getline(cin, input);
-
-                if(input == "q" || input == "quit" || input == "exit") {
-
-                    running = false;
-                    handler.interrupt();
-
-                }
-
-            }
-
-        }
-    );
 
     ///////////////////////////////////////////////////////////////////////////
     // Fetch packets and write to file
     ///////////////////////////////////////////////////////////////////////////
 
 	int packets   = 0;
-	int thousands = 0;
 
-	while(running) {
+	while(true) {
 
         DAQCap::DataBlob blob;
 
@@ -283,17 +247,11 @@ int main(int argc, char **argv) {
 
 		packets += blob.packetCount();
 
-		while(packets / 1000 > thousands) {
-
-			++thousands;
-
-			cout << "Recorded " << thousands * 1000 << " packets";
-
-		}
+        cout << "\rRecorded " << packets << " packets" << std::flush;
 
         if(packets >= args.maxPackets) {
 
-            running = false;
+            break;
 
         }
 
@@ -305,7 +263,9 @@ int main(int argc, char **argv) {
 
     cout << endl;
 	cout << "Data capture finished!" << endl;
-	cout << packets << " packets recorded." << endl;
+
+    // Look at this for killing threads:
+    // https://stackoverflow.com/a/12207835
 
     return 0;
 
@@ -325,7 +285,7 @@ shared_ptr<Device> promptForDevice(
 
         std::getline(cin, selection);
 
-        // Return an empty device if the user wants to quit
+        // Throw an exception if the user wants to quit
         if(selection == "q" || selection == "quit" || selection == "exit") {
 
             throw user_interrupt("User quit.");

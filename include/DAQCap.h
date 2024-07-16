@@ -54,11 +54,9 @@ namespace DAQCap {
         /**
          * @brief Gets a network device by name.
          * 
-         * @note If the device is not in the internal cache, the cache will be
-         * reloaded. But if a device in the internal cache has since been 
-         * removed, the cache will not be reloaded, and the device will
-         * still be returned. If an up-to-date cache is required, call
-         * getAllNetworkDevices() with the reload parameter set to true.
+         * @note This function caches the list of devices on the first call,
+         * and returns the cached list on subsequent calls. To refresh the
+         * list of devices, call clearDeviceCache().
          * 
          * @param name The name of the device to get.
          * 
@@ -70,20 +68,23 @@ namespace DAQCap {
         std::shared_ptr<Device> getNetworkDevice(const std::string &name);
 
         /**
+         * @brief Clears the internal cache of network devices.
+         */
+        void clearDeviceCache();
+
+        /**
          * @brief Gets a list of all network devices on the system. If no
          * devices could be found, returns an empty vector.
          * 
-         * @param reload Whether to reload internally cached network devices.
-         * By default, the internal cache is not reloaded, and the device
-         * list will not be updated for any newly added or removed devices.
+         * @note This function caches the list of devices on the first call,
+         * and returns the cached list on subsequent calls. To refresh the
+         * list of devices, call clearDeviceCache().
          * 
          * @return A vector of Device pointers.
          * 
          * @throws std::runtime_error if an error occurred.
          */
-        std::vector<std::shared_ptr<Device>> getAllNetworkDevices(
-            bool reload = false
-        );
+        std::vector<std::shared_ptr<Device>> getAllNetworkDevices();
 
         /**
          * @brief Begins a capture session on the specified device, and prepares

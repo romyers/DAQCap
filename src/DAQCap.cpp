@@ -5,6 +5,7 @@
 #include "Packet.h"
 
 #include <future>
+#include <algorithm>
 
 using std::vector;
 using std::string;
@@ -85,16 +86,15 @@ void SessionHandler::endSession() {
     
 }
 
-vector<shared_ptr<Device>> SessionHandler::getAllNetworkDevices(
-    bool reload
-) {
+void SessionHandler::clearDeviceCache() {
 
-    if(reload) {
+    networkDeviceCache.clear();
 
-        networkDeviceCache.clear();
+}
 
-    }
+vector<shared_ptr<Device>> SessionHandler::getAllNetworkDevices() {
 
+    // Populate the cache if it's empty
     if(networkDeviceCache.empty()) {
 
         networkDeviceCache = netManager->getAllDevices();
@@ -109,18 +109,7 @@ shared_ptr<Device> SessionHandler::getNetworkDevice(
     const string &name
 ) {
 
-    if(name.empty()) return nullptr;
-
-    // Check the cache first
-    for(const shared_ptr<Device> device : networkDeviceCache) {
-
-        if(device->getName() == name) return device;
-
-    }
-
-    // If the device wasn't in the cache, try reloading the device list
-    vector<shared_ptr<Device>> devices;
-    devices = getAllNetworkDevices(true);
+    vector<shared_ptr<Device>> devices = getAllNetworkDevices();
 
     for(const shared_ptr<Device> device : devices) {
 

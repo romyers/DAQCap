@@ -324,7 +324,8 @@ TEST_CASE("SessionHandler::getAllNetworkDevices()") {
             new MockDevice("MockDevice3Name", "MockDevice3Description")
         );
 
-        devices = handler.getAllNetworkDevices(true);
+        handler.clearDeviceCache();
+        devices = handler.getAllNetworkDevices();
 
         REQUIRE(devices.size() == 3);
         REQUIRE(devices[0]->getName() == "MockDeviceName");
@@ -376,7 +377,7 @@ TEST_CASE("SessionHandler::getNetworkDevice()") {
 
     }
 
-    SECTION("getNetworkDevice() reloads cache if necessary") {
+    SECTION("getNetworkDevice() does not relaod cache") {
 
         shared_ptr<Device> device = handler.getNetworkDevice("MockDeviceName");
 
@@ -386,8 +387,7 @@ TEST_CASE("SessionHandler::getNetworkDevice()") {
 
         device = handler.getNetworkDevice("MockDevice3Name");
 
-        REQUIRE(device != nullptr);
-        REQUIRE(device->getName() == "MockDevice3Name");
+        REQUIRE(device == nullptr);
 
         g_devices.pop_back();
 

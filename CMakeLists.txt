@@ -47,7 +47,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
 endif()
 
-# Point CMAKE at the project directory for modules
+# Point CMake at the project directory for modules
 list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules/")
 
 # Find libpcap, and fetch it if it's not found
@@ -72,7 +72,7 @@ if(PCAP_FOUND)
 
     add_library(
         PCap_Interface
-        STATIC
+        SHARED
         src/NetworkInterfaces/PCapInterface.cpp
         include/DAQCapDevice.h
     )
@@ -84,12 +84,10 @@ endif()
 # TODO: Look at this for debug logging:
 #       https://www.reddit.com/r/cpp_questions/comments/obndlq/help_use_cmake_to_define_and_test_preprocessor/
 
-# TODO: Make sure that both ways of including libpcap get linked to correctly
-
 # Build the library
 add_library(
     DAQCap 
-    STATIC
+    SHARED
     src/DAQCap.cpp 
     src/DAQBlob.cpp
     src/Packet.cpp

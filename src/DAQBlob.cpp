@@ -34,20 +34,22 @@ vector<Word> DAQCap::packData(const vector<uint8_t> &data) {
 
     vector<uint64_t> packedData;
 
-    // Without this, the loop will segfault
-    if(data.size() < Packet::WORD_SIZE) return packedData;
-
     packedData.reserve(data.size() / Packet::WORD_SIZE);
 
+    // NOTE: Since data.size() and Packet::WORD_SIZE are unsigned, we need to
+    //       cast to int to avoid underflow for small data.size() in the loop
+    //       comparison.
     for(
-        size_t wordStart = 0; 
-        wordStart <= data.size() - Packet::WORD_SIZE; 
+        int wordStart = 0; 
+        wordStart <= (int)data.size() - (int)Packet::WORD_SIZE; 
         wordStart += Packet::WORD_SIZE
     ) {
 
+        // Convert a word of raw bytes into a uint64_t
         packedData.push_back(0);
-        
         for(size_t byte = 0; byte < Packet::WORD_SIZE; ++byte) {
+
+            // memcpy would be faster, but runs into byte order issues.
 
             // NOTE: Without the cast to uint64_t, the shift will be done as if
             //       on a 32-bit integer, causing the first byte to wrap around

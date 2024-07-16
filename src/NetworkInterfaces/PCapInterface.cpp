@@ -187,6 +187,8 @@ vector<Packet> PCapManager::fetchPackets(int packetsToRead) {
 
     } 
     
+    // This will leave g_packetBuffer in an unspecified (but valid) state. 
+    // We need to clear it before we can use it again.
     return std::move(g_packetBuffer);
 
 }
@@ -219,7 +221,7 @@ vector<shared_ptr<Device>> PCapManager::getAllDevices() {
 
         devices.emplace_back(
             new PCapDevice(
-                d->name? d->name : "(Unknown Device)",
+                d->name       ? d->name        : "(Unknown Device)",
                 d->description? d->description : "(No description available)"
             )
         );
@@ -244,10 +246,10 @@ void listen_callback(
         // NOTE: We have to use a structure with global scope here.
         g_packetBuffer.emplace_back(packet_data, header->len);
 
-    } catch(const std::invalid_argument &e) {
+    } catch(...) {
 
         // We don't want to throw exceptions from a callback function.
-        // We'll just ignore the malformed packet. Validation code should
+        // We'll just ignore the malformed packet. DAQCap::SessionHandler will
         // notice that we missed a packet.
         
     }
