@@ -91,6 +91,7 @@ add_library(
     src/DAQCap.cpp 
     src/DAQBlob.cpp
     src/Packet.cpp
+    src/PacketProcessor.cpp
 )
 target_include_directories(DAQCap PUBLIC include)
 if(PCAP_FOUND)

@@ -24,3 +24,13 @@ target_link_libraries(testPacket PRIVATE Catch2::Catch2WithMain)
 target_include_directories(testPacket PRIVATE ${SRC_DIR})
 add_test(NAME testPacket COMMAND testPacket)
 catch_discover_tests(testPacket)
+
+add_executable(
+    testPacketProcessor 
+    PacketProcessor.test.cpp 
+    ${SRC_DIR}/PacketProcessor.cpp
+)
+target_link_libraries(testPacketProcessor PRIVATE Catch2::Catch2WithMain DAQCap)
+target_include_directories(testPacketProcessor PRIVATE ${SRC_DIR})
+add_test(NAME testPacketProcessor COMMAND testPacketProcessor)
+catch_discover_tests(testPacketProcessor)

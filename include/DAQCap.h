@@ -59,10 +59,6 @@ namespace DAQCap {
         /**
          * @brief Gets a network device by name.
          * 
-         * @note This function caches the list of devices on the first call,
-         * and returns the cached list on subsequent calls. To refresh the
-         * list of devices, call clearDeviceCache().
-         * 
          * @param name The name of the device to get.
          * 
          * @return A pointer to the device with the specified name, or a null
@@ -73,17 +69,8 @@ namespace DAQCap {
         std::shared_ptr<Device> getNetworkDevice(const std::string &name);
 
         /**
-         * @brief Clears the internal cache of network devices.
-         */
-        void clearDeviceCache();
-
-        /**
          * @brief Gets a list of all network devices on the system. If no
          * devices could be found, returns an empty vector.
-         * 
-         * @note This function caches the list of devices on the first call,
-         * and returns the cached list on subsequent calls. To refresh the
-         * list of devices, call clearDeviceCache().
          * 
          * @return A vector of Device pointers.
          * 
@@ -184,12 +171,7 @@ namespace DAQCap {
 
         std::unique_ptr<class NetworkManager> netManager;
 
-        std::unique_ptr<class Packet> lastPacket;
-
-        std::vector<std::shared_ptr<Device>> networkDeviceCache;
-
-        // Buffer for unfinished data words at the end of a packet
-        std::vector<uint8_t> unfinishedWords;
+        std::unique_ptr<class PacketProcessor> packetProcessor;
 
     };
 
