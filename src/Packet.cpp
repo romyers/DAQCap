@@ -24,7 +24,8 @@ const size_t Packet::WORD_SIZE = 5;
 const vector<uint8_t> Packet::IDLE_WORD 
     = vector<uint8_t>(Packet::WORD_SIZE, 0xFF);
         
-Packet::Packet(const uint8_t *raw_data, size_t size) : packetNumber(0) {
+Packet::Packet(const uint8_t *raw_data, size_t size) 
+    : packetNumber(0) {
 
     // NOTE: This relates to the data format from the miniDAQ, not to the 
     //       network interface we're using to get the data.
@@ -50,10 +51,11 @@ Packet::Packet(const uint8_t *raw_data, size_t size) : packetNumber(0) {
 
     }
 
-    data.insert(
-        data.end(), 
-        raw_data + PRELOAD_BYTES, 
-        raw_data + size - POSTLOAD_BYTES
+    data = std::move(
+        vector<uint8_t>(
+            raw_data + PRELOAD_BYTES, 
+            raw_data + size - POSTLOAD_BYTES
+        )
     );
 
     static unsigned long counter = 0;

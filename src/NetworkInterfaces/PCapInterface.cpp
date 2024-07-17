@@ -110,10 +110,14 @@ void PCapManager::interrupt() {
             #ifdef PCAP_CHAR_ENC_LOCAL
 
                 pcap_breakloop(handler);
+                return;
 
             #endif
 
         #endif
+
+        // If we get this far, then we can't interrupt
+
 
         // TODO: Document that we can't interrupt on this platform or
         //       find another way to do it. We could consider e.g.
@@ -151,17 +155,35 @@ void PCapManager::startSession(const shared_ptr<Device> device) {
 
     pcap_set_snaplen(handler, 65536);
     pcap_set_promisc(handler, 1);
+
+    // OPTIMIZATION: If this is too slow, turn off immediate mode and control
+    //               the buffer size to get a good balance between speed and
+    //               responsiveness.
     
     // With immediate_mode on, packets are delivered to the application as soon
     // as they are received. With immediate_mode off, packets are buffered 
     // until the buffer is full or a timeout occurs.
     pcap_set_immediate_mode(handler, 1);
     pcap_set_timeout(handler, 10000); // This does not work on every OS
+    pcap_set_buffer_size(handler, 100); // How many bytes to buffer before
+                                        // delivering packets
 
     // TODO: With immediate_mode, is there really a reason to use pcap_dispatch
     //       instead of just getting packets one at a time?
 
-    pcap_activate(handler);
+    int ret = pcap_activate(handler);
+    if(ret < 0) {
+
+        throw std::runtime_error(
+            string("Could not activate device ") 
+                + device->getName() + " : " + pcap_geterr(handler)
+                + ".\nCheck permissions."
+        );
+
+        pcap_close(handler);
+        handler = nullptr;
+
+    }
 
     // Compile the filter
     struct bpf_program fcode;

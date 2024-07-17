@@ -218,6 +218,11 @@ DataBlob SessionHandler::fetchData(
     // Unwind packets into data
     for(const Packet &packet : packets) {
 
+        // OPTIMIZATION -- We could resize and memcpy into data.data() for
+        //                 faster insertion. Fastest would likely be to
+        //                 run through packets to get the total data size,
+        //                 resize data to that size, and then memcpy in
+        //                 each packet.
         data.insert(
             data.end(),
             packet.cbegin(),
@@ -251,6 +256,8 @@ DataBlob SessionHandler::fetchData(
         ) {
 
             // If it isn't add it to the blob.
+            // OPTIMIZATION -- Again, memcpy would be a bit faster, though less
+            //                 so since we're only copying one word at a time.
             blob.dataBuffer.insert(
                 blob.dataBuffer.end(),
                 iter,
