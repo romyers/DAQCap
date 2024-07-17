@@ -14,6 +14,9 @@
 
 namespace DAQCap {
 
+    const int ALL_PACKETS = -1;
+    const std::chrono::milliseconds FOREVER(-1);
+
     /**
      * @brief Represents a network device on the system.
      * 
@@ -36,6 +39,16 @@ namespace DAQCap {
          * @brief Get the description of the device.
          */
         virtual std::string getDescription() const = 0;
+
+        virtual void open() = 0;
+        virtual void close() = 0;
+
+        virtual void interrupt() = 0;
+
+        virtual DataBlob fetchData(
+            std::chrono::milliseconds timeout = FOREVER,
+            int packetsToRead = ALL_PACKETS
+        ) = 0;
 
         Device(const Device &other) = delete;
         Device &operator=(const Device &other) = delete;

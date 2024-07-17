@@ -88,7 +88,7 @@ namespace DAQCap {
 
         std::vector<std::string> warningsBuffer;
 
-        friend class SessionHandler;
+        friend class PacketProcessor;
 
     };
 
