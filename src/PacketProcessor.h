@@ -19,7 +19,10 @@
 namespace DAQCap {
 
     // TODO: Bundle this class in an existing .h?
+<<<<<<< HEAD
     // TODO: Reflect semantically that it's more of a packet 'accumulator'
+=======
+>>>>>>> 52957ccffdd945a3c1f47889ce9ed85e44a24a9a
 
     class PacketProcessor {
 
@@ -38,6 +41,7 @@ namespace DAQCap {
          */
         DataBlob process(const std::vector<Packet> &packet);
 
+<<<<<<< HEAD
         /*
         TODO: Try something like:
 
@@ -52,6 +56,8 @@ namespace DAQCap {
 
         */
 
+=======
+>>>>>>> 52957ccffdd945a3c1f47889ce9ed85e44a24a9a
     private:
 
         // The last packet processed
