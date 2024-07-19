@@ -17,13 +17,12 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
+#include <memory>
 
 #include <getopt.h>
 
 using std::vector;
 using std::string;
-
-using std::shared_ptr;
 
 using std::cout;
 using std::cin;
@@ -31,7 +30,7 @@ using std::cerr;
 using std::endl;
 
 using DAQCap::Device;
-using DAQCap::SessionHandler;
+using DAQCap::DataBlob;
 
 // Holds the command-line arguments
 struct Arguments {
@@ -57,8 +56,8 @@ struct Arguments {
 Arguments parseArguments(int argc, char **argv);
 
 // Prompt user to select a device from a list
-shared_ptr<Device> promptForDevice(
-    const vector<shared_ptr<Device>> &devices
+Device *promptForDevice(
+    const vector<Device*> &devices
 );
 
 // Get a timestamp representing the current time in the given format
@@ -67,7 +66,7 @@ string getCurrentTimestamp(const string &format);
 // Print a list of available network devices
 void printDeviceList(
     std::ostream &os, 
-    const vector<shared_ptr<Device>> &devices
+    const vector<Device*> &devices
 );
 
 // Print the help message
@@ -93,13 +92,11 @@ int main(int argc, char **argv) {
     // Select a device to listen on
     ///////////////////////////////////////////////////////////////////////////
 
-    SessionHandler handler;
-
     // Check for the device specified by the user, if applicable
-    shared_ptr<Device> device;
+    Device *device;
     try {
 
-        device = handler.getNetworkDevice(args.deviceName);
+        device = Device::getDevice(args.deviceName);
 
     } catch(const std::exception &e) {
 
@@ -120,11 +117,11 @@ int main(int argc, char **argv) {
 
         }
 
-        vector<shared_ptr<Device>> devices;
+        vector<Device*> devices;
 
         try {
 
-            devices = handler.getAllNetworkDevices();
+            devices = Device::getAllDevices();
 
         } catch(const std::exception &e) {
 
@@ -150,14 +147,22 @@ int main(int argc, char **argv) {
 
     }
 
+    if(!device) {
+
+        cerr << "No device selected. Exiting..." << endl;
+
+        return 1;
+
+    }
+
     ///////////////////////////////////////////////////////////////////////////
     // Initialize a SessionHandler for the selected device
     ///////////////////////////////////////////////////////////////////////////
 
     try {
 
-        // Initialize the session handler
-        handler.startSession(device);
+        // Open a capture session
+        device->open();
 
     } catch(const std::exception &e) {
 
@@ -230,7 +235,7 @@ int main(int argc, char **argv) {
 
         try {
 
-            blob = handler.fetchData(std::chrono::minutes(1));
+            blob = device->fetchData(std::chrono::minutes(1));
 
         } catch(const DAQCap::timeout_exception &t) {
 
@@ -276,8 +281,8 @@ int main(int argc, char **argv) {
 
 }
 
-shared_ptr<Device> promptForDevice(
-    const vector<shared_ptr<Device>> &devices
+Device *promptForDevice(
+    const vector<Device*> &devices
 ) {
 
     // Prompt user for a device
@@ -399,14 +404,14 @@ string getCurrentTimestamp(const string &format) {
 
 void printDeviceList(
     std::ostream &os, 
-    const vector<shared_ptr<Device>> &devices
+    const vector<Device*> &devices
 ) {
 
     // Find the biggest name and description so we can format the output
     size_t paddingSize = 4;
     size_t biggestName = 0;
     size_t biggestFullText = 0;
-    for(const shared_ptr<Device> device : devices) {
+    for(const Device *device : devices) {
 
         if(device->getName().size() > biggestName) {
             

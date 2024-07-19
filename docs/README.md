@@ -129,13 +129,14 @@ int main() {
     // will be accessed through this handler.
     DAQCap::SessionHandler handler;
 
-    // Next we'll get a list of available network devices.
-    std::vector<std::shared_ptr<DAQCap::Device>> devices;
+    // Next we'll get a list of available network devices. These pointers are
+    // backed by internally-managed device instances.
+    std::vector<Device*> devices;
     try {
 
         // This will throw an exception if the device list could not be
         // obtained.
-        devices = handler.getAllNetworkDevices();
+        devices = Devices::getAllDevices();
 
     } catch(...) {
 
@@ -144,15 +145,15 @@ int main() {
     }
 
     // Pick a device. We could prompt the user to select a device, or we could
-    // accept a device name and use handler.getNetworkDevice([device name])
+    // accept a device name and use Device::getDevice([device name])
     // to look for and retrieve the associated device.
-    std::shared_ptr<DAQCap::Device> d = devices[0];
+    Device *d = devices[0];
 
     // Next, we'll start a capture session on the selected device.
     try {
 
         // This too will throw an exception if something goes wrong.
-        handler.startSession(d);
+        d->open();
 
     } catch(...) {
 
@@ -171,7 +172,7 @@ int main() {
         // the data as a DAQData::DataBlob.
         DAQCap::DataBlob data;
         try {
-            data = handler.fetchData();
+            data = d->fetchData();
         } catch(...) { continue; }
 
         // Another version of this call, this time specifying a timeout
@@ -181,7 +182,7 @@ int main() {
         /*
         try {
 
-            DAQCap::DataBlob data = handler.fetchData(
+            DAQCap::DataBlob data = d->fetchData(
                 std::chrono::seconds(10),
                 50
             );
