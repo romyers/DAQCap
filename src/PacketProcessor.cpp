@@ -22,10 +22,59 @@ DataBlob PacketProcessor::process(const vector<Packet> &packets) {
     DataBlob blob;
 
     ///////////////////////////////////////////////////////////////////////////
+    // Unpack packets
+    ///////////////////////////////////////////////////////////////////////////
+
+    // Record the number of packets
+    blob.packets = packets.size();
+
+    // Put any unfinished words at the start of dataBuffer, and clear
+    // unfinishedWords at the same time.
+    std::swap(blob.dataBuffer, unfinishedWords);
+
+    // This likely won't hold everything, but it will eliminate some extraneous
+    // reallocations.
+    // OPTIMIZATION -- It might be faster to accumulate packet sizes and
+    //                 reserve the resulting size.
+    blob.dataBuffer.reserve(packets.size() * Packet::WORD_SIZE);
+
+    // Unpack packets into dataBuffer
+    for(const Packet &packet : packets) {
+
+        // OPTIMIZATION -- We could resize and memcpy into dataBuffer for
+        //                 faster insertion. Fastest would likely be to
+        //                 run through packets to get the total data size,
+        //                 resize data to that size, and then memcpy in
+        //                 each packet.
+        blob.dataBuffer.insert(
+            blob.dataBuffer.end(),
+            packet.cbegin(),
+            packet.cend()
+        );
+
+    }
+
+    // Add any trailing unfinished word to unfinishedWords
+    unfinishedWords.insert(
+        unfinishedWords.end(),
+        blob.dataBuffer.cend() - (blob.dataBuffer.size() % Packet::WORD_SIZE),
+        blob.dataBuffer.cend()
+    );
+
+    // And erase it from dataBuffer
+    blob.dataBuffer.erase(
+        blob.dataBuffer.cend() - (blob.dataBuffer.size() % Packet::WORD_SIZE),
+        blob.dataBuffer.cend()
+    );
+
+    ///////////////////////////////////////////////////////////////////////////
     // Check for lost packets
     ///////////////////////////////////////////////////////////////////////////
 
+    // Start with the last packet we checked
     const Packet *prevPacket = lastPacket.get();
+
+    // Check all the new packets sequentially
     for(const Packet &packet : packets) {
 
         if(prevPacket) {
@@ -50,6 +99,7 @@ DataBlob PacketProcessor::process(const vector<Packet> &packets) {
 
     }
 
+    // Store the last packet for next time
     if(prevPacket) {
 
         lastPacket = std::unique_ptr<Packet>(new Packet(*prevPacket));
@@ -60,46 +110,22 @@ DataBlob PacketProcessor::process(const vector<Packet> &packets) {
     // Package the data into the blob
     ///////////////////////////////////////////////////////////////////////////
 
-    blob.packets = packets.size();
+    // Now dataBuffer should start at the beginning of a word, so we can use 
+    // that invariant to scan it for idle words.
 
-    // Put any unfinished words at the start of dataBuffer, and clear
-    // unfinishedWords at the same time.
-    std::swap(blob.dataBuffer, unfinishedWords);
-
-    // This likely won't hold everything, but it will eliminate some extraneous
-    // reallocations.
-    // OPTIMIZATION -- It might be faster to accumulate packet sizes and
-    //                 reserve the resulting size.
-    blob.dataBuffer.reserve(packets.size() * Packet::WORD_SIZE);
-
-    // Unwind packets into dataBuffer
-    for(const Packet &packet : packets) {
-
-        // OPTIMIZATION -- We could resize and memcpy into dataBuffer for
-        //                 faster insertion. Fastest would likely be to
-        //                 run through packets to get the total data size,
-        //                 resize data to that size, and then memcpy in
-        //                 each packet.
-        blob.dataBuffer.insert(
-            blob.dataBuffer.end(),
-            packet.cbegin(),
-            packet.cend()
-        );
-
-    }
-
-    // Now data should start at the beginning of a word, so we can use that
-    // invariant to scan it for idle words. Any word that isn't idle is
-    // added to the blob.
-
+    // Make a temporary vector and swap the dataBuffer into it
     std::vector<uint8_t> data;
-    data.reserve(blob.dataBuffer.size());
+    std::swap(data, blob.dataBuffer);
 
-    // Scan through each word.
-    auto iter = blob.dataBuffer.cbegin();
+    // The dataBuffer is empty now, so let's reserve what we need
+    blob.dataBuffer.reserve(data.size());
+
+    // Scan through each word
+    // NOTE: The unpacking logic guarantees that blob holds exactly an integer
+    //       number of words, so we can trust that we won't go out of bounds.
     for(
-        ;
-        iter != blob.dataBuffer.cend() - (blob.dataBuffer.size() % Packet::WORD_SIZE);
+        auto iter = data.cbegin();
+        iter != data.cend();
         iter += Packet::WORD_SIZE
     ) {
 
@@ -113,11 +139,11 @@ DataBlob PacketProcessor::process(const vector<Packet> &packets) {
             )
         ) {
 
-            // If it isn't add it to the blob.
+            // If it isn't add it back to the dataBuffer
             // OPTIMIZATION -- Again, memcpy would be a bit faster, though less
             //                 so since we're only copying one word at a time.
-            data.insert(
-                data.end(),
+            blob.dataBuffer.insert(
+                blob.dataBuffer.end(),
                 iter,
                 iter + Packet::WORD_SIZE
             );
@@ -125,16 +151,6 @@ DataBlob PacketProcessor::process(const vector<Packet> &packets) {
         }
 
     }
-
-    // Add the remainder from data to unfinishedWords
-    unfinishedWords.insert(
-        unfinishedWords.end(),
-        iter,
-        blob.dataBuffer.cend()
-    );
-
-    // Swap the cleaned data into the blob
-    std::swap(blob.dataBuffer, data);
 
     return blob;
 
