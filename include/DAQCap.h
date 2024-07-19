@@ -9,26 +9,22 @@
 
 #pragma once
 
-#include <DAQCapDevice.h>
-#include <DAQBlob.h>
 
-#include <vector>
-#include <stdexcept>
+#include "DAQBlob.h"
+
 #include <string>
 #include <chrono>
+#include <stdexcept>
 
 /**
  * @brief The library version.
  */
 #define DAQCAP_VERSION "1.0.0"
 
-// TODO: Ask Yuxiang about the phase 1 packet format. I'd like to be able to
-//       support phase 1 and phase 2 systems.
-
 namespace DAQCap {
 
-    extern const int ALL_PACKETS;
-    extern const std::chrono::milliseconds FOREVER;
+    const int ALL_PACKETS = -1;
+    const std::chrono::milliseconds FOREVER(-1);
 
     /**
      * @brief Exception thrown to signal that a timeout occurred.
@@ -38,140 +34,105 @@ namespace DAQCap {
     };
 
     /**
-     * @brief Manages a session with a network device. 
+     * @brief Represents a network device.
      * 
-     * The SessionHandler class provides a high-level interface for interacting
-     * with and reading from network devices.
-     * 
-     * @note This class is not thread-safe. Do not concurrently fetch packets
-     * from two different threads, even if they are using different devices.
+     * @note Devices are not client-instantiable. Access them via
+     * Device::getAllDevices() or Device::getDevice().
      */
-    class SessionHandler final {
+    class Device {
 
     public:
 
         /**
-         * @brief Constructs a SessionHandler objec.
+         * @brief Gets a list of all available devices. Devices with the same
+         * name are the same device instance.
+         * 
+         * @note Do not delete the pointers returned by this function.
          */
-        SessionHandler();
-        ~SessionHandler();
+        static std::vector<Device*> getAllDevices();
 
         /**
-         * @brief Gets a network device by name.
+         * @brief Gets a device by name if it exists. If it does not exist,
+         * returns nullptr.
          * 
-         * @param name The name of the device to get.
-         * 
-         * @return A pointer to the device with the specified name, or a null
-         * device if the device could not be found.
-         * 
-         * @throws std::runtime_error if an error occurred.
+         * @note Do not delete the pointer returned by this function.
          */
-        std::shared_ptr<Device> getNetworkDevice(const std::string &name);
+        static Device *getDevice(const std::string &name);
 
         /**
-         * @brief Gets a list of all network devices on the system. If no
-         * devices could be found, returns an empty vector.
-         * 
-         * @return A vector of Device pointers.
-         * 
-         * @throws std::runtime_error if an error occurred.
+         * @brief Gets the name of the device.
          */
-        std::vector<std::shared_ptr<Device>> getAllNetworkDevices();
+        virtual std::string getName() const = 0;
 
         /**
-         * @brief Begins a capture session on the specified device, and prepares
-         * the SessionHandler to fetch data from it.
-         * 
-         * @note Calling startSession() on a SessionHandler that is already
-         * in the middle of a session will close the current session and start
-         * a new one. This will interrupt any concurrent calls to fetchData().
-         * 
-         * @throws std::runtime_error if the device does not exist or could not
-         * be initialized.
+         * @brief Gets the description of the device.
          */
-        void startSession(const std::shared_ptr<Device> device);
+        virtual std::string getDescription() const = 0;
 
         /**
-         * @brief Ends a capture session on the current device.
+         * @brief Opens the device for data capture. If the device is already
+         * open, has no effect.
+         * 
+         * @throws std::runtime_error if an error occurs while opening the
+         * device.
          */
-        void endSession();
+        virtual void open() = 0;
 
         /**
-         * @brief Thread-safe method that interrupts calls to fetchData().
+         * @brief Closes a data capture session on the device, interrupting any
+         * concurrent calls to fetchData().
+         */
+        virtual void close() = 0;
+
+        /**
+         * @brief Interrupts any concurrent calls to fetchData() and forces
+         * them to return.
          * 
          * @note This function is supported for Linux and Windows and for
          * libpcap versions 1.10.0 and later. For other platforms or versions,
          * this function will have no effect.
          */
-        void interrupt();
+        virtual void interrupt() = 0;
 
         /**
-         * @brief Waits for and retrieves data from the network device
-         * associated with this SessionHandler.
+         * @brief Fetches data from the device.
          * 
-         * Waits for data to arrive on the network device associated with this
-         * SessionHandler, then returns a DataBlob containing the data together
-         * with the packet count and any warnings that were generated. Any idle
-         * data words are excluded.
+         * Blocks until data is available on the device or the timeout is
+         * reached, then returns up to packetsToRead packets of data as
+         * a DataBlob.
          * 
-         * If timeout is FOREVER, fetchData() will wait indefinitely for
-         * data to arrive. Otherwise it will abort with a timeout_exception
-         * if no data arrives within the specified time.
+         * fetchData() may not be called concurrently, even from different
+         * Device instances.
          * 
-         * If packetsToRead is ALL_PACKETS, fetchData() will read all data
-         * that arrives in the current buffer. Otherwise it will read 
-         * up to packetsToRead data packets at a time and leave any remaining
-         * data for the next call to fetchData().
+         * @param timeout The maximum time to wait for data to be available
+         * before returning.
          * 
-         * If the SessionHandler is configured to exclude idle packets, idle
-         * packets are excluded from the data blob's data vector, but included
-         * in the packet count.
+         * @param packetsToRead The maximum number of packets to read from the
+         * device in one call to fetchData. FetchData will return at most
+         * packetsToRead packets of data.
          * 
-         * REQUIRES: 
-         *   - timeout >= 0 || timeout == FOREVER
-         *   - packetsToRead >= 0 || packetsToRead == ALL_PACKETS
+         * @return A DataBlob containing the raw packet data together with
+         * the number of packets in the blob and any warnings or errors that
+         * occurred.
          * 
-         * @note A session must have been started with startSession() before
-         * calling fetchData().
+         * @throws timeout_exception if the timeout is reached before data
+         * is available.
          * 
-         * @note This function is not thread-safe. Do not call fetchData()
-         * concurrently from two different threads, even if they are using
-         * different devices.
-         * 
-         * @param timeout The maximum time to wait for data to arrive, in
-         * milliseconds. If timeout is FOREVER, fetchData() will wait
-         * indefinitely for data to arrive.
-         * 
-         * Timeouts are supported only for Windows and Linux and for libpcap
-         * versions 1.10.0 and later. For other platforms or versions, this
-         * timeout will be ignored.
-         * 
-         * @param packetsToRead The number of packets to read in this call to
-         * fetchData(). If packetsToRead is ALL_PACKETS, all packets in
-         * the current buffer will be read.
-         * 
-         * @return A DataBlob containing the data, packet count, and any 
-         * warnings that were generated.
-         * 
-         * @throws std::logic_error if a session has not been started.
-         * @throws std::runtime_error if an error occurred that prevented
-         * the function from reading data.
-         * @throws timeout_exception if data could not be fetched within
-         * timeout milliseconds.
+         * @throws std::runtime_error if an error occurs while fetching data.
          */
-        DataBlob fetchData(
+        virtual DataBlob fetchData(
             std::chrono::milliseconds timeout = FOREVER,
             int packetsToRead = ALL_PACKETS
-        );
+        ) = 0;
 
-        SessionHandler(const SessionHandler &other)            = delete;
-        SessionHandler &operator=(const SessionHandler &other) = delete;
+        virtual ~Device() = default;
 
-    private:
+        Device(const Device &other) = delete;
+        Device &operator=(const Device &other) = delete;
 
-        std::unique_ptr<class NetworkManager> netManager;
+    protected:
 
-        std::unique_ptr<class PacketProcessor> packetProcessor;
+        Device() = default;
 
     };
 

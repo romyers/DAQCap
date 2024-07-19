@@ -38,19 +38,10 @@ namespace DAQCap {
          */
         DataBlob process(const std::vector<Packet> &packet);
 
-        /*
-        TODO: Try something like:
-
-        // Just unpacks the packets
-        vector<uint8_t> unpack(const std::vector<Packet> &packets);
-
-        // Checks for lost packets
-        std::vector<std::string> checkLostPackets(const std::vector<Packet> &packets);
-
-        // Removes idle words (in-place)
-        void removeIdleWords(std::vector<uint8_t> &data);
-
-        */
+        /**
+         * @brief Resets the packet processor.
+         */
+        void reset();
 
     private:
 
@@ -59,6 +50,36 @@ namespace DAQCap {
 
         // Buffer for unfinished data words at the end of a packet
         std::vector<uint8_t> unfinishedWords;
+
+        /**
+         * @brief Unpacks a vector of packets into a data blob.
+         * 
+         * @param[in] packets The packets to unpack.
+         * @param[out] blob The blob to unpack the packets into.
+         */
+        void unpack(
+            const std::vector<Packet> &packets, 
+            DataBlob &blob
+        );
+
+        /**
+         * @brief Scans a vector of packets for warnings and stores the
+         * warnings in a data blob.
+         * 
+         * @param[in] packets The packets to scan for warnings.
+         * @param[out] blob The blob to store the warnings in.
+         */
+        void getWarnings(
+            const std::vector<Packet> &packets, 
+            DataBlob &blob
+        );
+
+        /**
+         * @brief Removes idle words from a data blob.
+         * 
+         * @param[in,out] blob The blob to remove idle words from.
+         */
+        void removeIdleWords(DataBlob &blob);
 
     };
 

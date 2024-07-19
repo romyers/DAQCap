@@ -7,6 +7,11 @@ project(DAQCap
 
 OPTION(BUILD_EXE "Build the executable ecap program" OFF)
 OPTION(BUILD_TESTING "Build the Test Suite" OFF)
+OPTION(
+    INCLUDE_NETWORK_LIBRARY 
+    "Include a network interface library if one is found" 
+    ON
+)
 
 include(FetchContent)
 
@@ -67,20 +72,6 @@ if(NOT PCAP_FOUND)
 
 endif()
 
-# If we found libpcap, build the corresponding network interface library
-if(PCAP_FOUND)
-
-    add_library(
-        PCap_Interface
-        SHARED
-        src/NetworkInterfaces/PCapInterface.cpp
-        include/DAQCapDevice.h
-    )
-    target_link_libraries(PCap_Interface PRIVATE ${PCAP_LIBRARY})
-    target_include_directories(PCap_Interface PUBLIC src include)
-
-endif()
-
 # TODO: Look at this for debug logging:
 #       https://www.reddit.com/r/cpp_questions/comments/obndlq/help_use_cmake_to_define_and_test_preprocessor/
 
@@ -93,8 +84,5 @@ add_library(
     src/Packet.cpp
     src/PacketProcessor.cpp
 )
+target_link_libraries(DAQCap PRIVATE ${PCAP_LIBRARY})
 target_include_directories(DAQCap PUBLIC include)
-if(PCAP_FOUND)
-    target_compile_definitions(DAQCap PRIVATE PCAP=1)
-    target_link_libraries(DAQCap PRIVATE PCap_Interface)
-endif()

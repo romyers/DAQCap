@@ -9,24 +9,32 @@ using std::vector;
 PacketProcessor::PacketProcessor()
     : lastPacket(nullptr) {}
 
-// TODO: We can extract lost packet checking and put it somewhere else
-// TODO: Can we move idle word removal?
-//         -- this is an operation on the unwound data, so it should be
-//            easy. What we'll do is unwind everything into the blob, 
-//            then separately remove idle words by:
-//              -- iterate through blob data and move non-idles to a new
-//                 vector
-//              -- swap the new vector with blob data
 DataBlob PacketProcessor::process(const vector<Packet> &packets) {
 
     DataBlob blob;
 
-    ///////////////////////////////////////////////////////////////////////////
-    // Unpack packets
-    ///////////////////////////////////////////////////////////////////////////
-
     // Record the number of packets
     blob.packets = packets.size();
+
+    unpack(packets, blob);
+    getWarnings(packets, blob);
+    removeIdleWords(blob);
+
+    return blob;
+
+}
+
+void PacketProcessor::reset() {
+
+    lastPacket = nullptr;
+    unfinishedWords.clear();
+
+}
+
+void PacketProcessor::unpack(
+    const vector<Packet> &packets, 
+    DataBlob &blob
+) {
 
     // Put any unfinished words at the start of dataBuffer, and clear
     // unfinishedWords at the same time.
@@ -67,9 +75,12 @@ DataBlob PacketProcessor::process(const vector<Packet> &packets) {
         blob.dataBuffer.cend()
     );
 
-    ///////////////////////////////////////////////////////////////////////////
-    // Check for lost packets
-    ///////////////////////////////////////////////////////////////////////////
+}
+
+void PacketProcessor::getWarnings(
+    const vector<Packet> &packets, 
+    DataBlob &blob
+) {
 
     // Start with the last packet we checked
     const Packet *prevPacket = lastPacket.get();
@@ -106,9 +117,9 @@ DataBlob PacketProcessor::process(const vector<Packet> &packets) {
         
     }
 
-    ///////////////////////////////////////////////////////////////////////////
-    // Package the data into the blob
-    ///////////////////////////////////////////////////////////////////////////
+}
+
+void PacketProcessor::removeIdleWords(DataBlob &blob) {
 
     // Now dataBuffer should start at the beginning of a word, so we can use 
     // that invariant to scan it for idle words.
@@ -151,7 +162,5 @@ DataBlob PacketProcessor::process(const vector<Packet> &packets) {
         }
 
     }
-
-    return blob;
 
 }
