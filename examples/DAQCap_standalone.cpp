@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <iostream>
 #include <fstream>
-#include <memory>
 
 #include <getopt.h>
 
@@ -226,7 +225,7 @@ int main(int argc, char **argv) {
 
         if(consecutiveErrors > 5) {
 
-            cerr << "Too many consecutive errors. Exiting..." << endl;
+            cerr << endl << "Too many consecutive errors. Exiting..." << endl;
             break;
 
         }
@@ -239,7 +238,7 @@ int main(int argc, char **argv) {
 
         } catch(const DAQCap::timeout_exception &t) {
 
-            cerr << "Timed out while waiting for packets." << endl;
+            cerr << "\rTimed out while waiting for packets." << endl;
 
             continue;
 

@@ -17,6 +17,8 @@ using namespace DAQCap;
 
 class PCapDevice;
 
+// TODO: Look for more ways to split this up. Maybe wrap PCap-specific stuff.
+
 // Global packet buffer we can use to get data out of the fetchData() 
 // function. It's reallllllly nontrivial to get pcap_dispatch() to read 
 // data into a class member, so we have to use this global buffer instead. 
@@ -216,9 +218,10 @@ void PCapDevice::open() {
     // as they are received. With immediate_mode off, packets are buffered 
     // until the buffer is full or a timeout occurs.
     pcap_set_immediate_mode(handler, 1);
-    pcap_set_timeout(handler, 10000); // This does not work on every OS
-    pcap_set_buffer_size(handler, 100); // How many bytes to buffer before
-                                        // delivering packets
+    // pcap_set_timeout(handler, 10000);   // This does not work on every OS
+    // pcap_set_buffer_size(handler, 100); // How many bytes to buffer before
+    //                                     // delivering packets (not used in
+    //                                     // immediate mode)
 
     // TODO: With immediate_mode, is there really a reason to use pcap_dispatch
     //       instead of just getting packets one at a time?
@@ -324,6 +327,8 @@ DataBlob PCapDevice::fetchData(
     std::chrono::milliseconds timeout,
     int packetsToRead
 ) {
+
+    // TODO: Timeout logic for versions that can't interrupt
 
     if(!handler) {
 
