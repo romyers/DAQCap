@@ -131,14 +131,11 @@ int main() {
 
     // Next we'll get a list of available network devices. These pointers are
     // backed by internally-managed device instances.
-    std::vector<Device*> devices;
-    try {
+    std::vector<Device*> devices = Device::getAllDevices();
 
-        // This will throw an exception if the device list could not be
-        // obtained.
-        devices = Devices::getAllDevices();
-
-    } catch(...) {
+    // Device::getAllDevices() will return an empty vector if it could not
+    // retrieve the devices for any reason.
+    if(devices.empty()) {
 
         return 1;
 
@@ -150,12 +147,11 @@ int main() {
     Device *d = devices[0];
 
     // Next, we'll start a capture session on the selected device.
-    try {
-
-        // This too will throw an exception if something goes wrong.
-        d->open();
-
-    } catch(...) {
+    d->open();
+    
+    // This part of the interface works like ifstreams. If d->open() fails,
+    // the device simply will not open.
+    if(!d->is_open()) {
 
         return 1;
 
@@ -177,7 +173,7 @@ int main() {
 
         // Another version of this call, this time specifying a timeout
         // and a maximum number of packets to read. This will try to read
-        // at most 50 packets, and throw a DAQCap::timeout_exception
+        // at most 50 packets, and return immediately
         // if it fails to complete the read within 10 seconds.
         /*
         try {
@@ -187,11 +183,7 @@ int main() {
                 50
             );
 
-        } catch(const DAQCap::timeout_exception &e) {
-        
-            continue;
-
-        } catch(...) { continue; }
+         catch(...) { continue; }
         */
 
         // Let's report any issues that occurred during the read.

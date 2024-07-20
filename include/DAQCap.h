@@ -15,6 +15,7 @@
 #include <string>
 #include <chrono>
 #include <stdexcept>
+#include <istream>
 
 /**
  * @brief The library version.
@@ -25,13 +26,6 @@ namespace DAQCap {
 
     const int ALL_PACKETS = -1;
     const std::chrono::milliseconds FOREVER(-1);
-
-    /**
-     * @brief Exception thrown to signal that a timeout occurred.
-     */
-    class timeout_exception : public std::runtime_error {
-        using std::runtime_error::runtime_error;
-    };
 
     /**
      * @brief Represents a network device.
@@ -47,13 +41,15 @@ namespace DAQCap {
          * @brief Gets a list of all available devices. Devices with the same
          * name are the same device instance.
          * 
+         * If the devices could not be fetched, returns an empty vector.
+         * 
          * @note Do not delete the pointers returned by this function.
          */
         static std::vector<Device*> getAllDevices();
 
         /**
-         * @brief Gets a device by name if it exists. If it does not exist,
-         * returns nullptr.
+         * @brief Gets a device by name if it exists. If the device could not
+         * be found, returns nullptr.
          * 
          * @note Do not delete the pointer returned by this function.
          */
@@ -71,12 +67,14 @@ namespace DAQCap {
 
         /**
          * @brief Opens the device for data capture. If the device is already
-         * open, has no effect.
-         * 
-         * @throws std::runtime_error if an error occurs while opening the
-         * device.
+         * open, or fails to open for any reason, has no effect.
          */
         virtual void open() = 0;
+
+        /**
+         * @brief Checks if the device is open for data capture.
+         */
+        virtual bool is_open() const = 0;
 
         /**
          * @brief Closes a data capture session on the device, interrupting any
@@ -101,6 +99,9 @@ namespace DAQCap {
          * reached, then returns up to packetsToRead packets of data as
          * a DataBlob.
          * 
+         * If the timeout is reached, aborts the data read and returns
+         * whatever (if any) data was read.
+         * 
          * fetchData() may not be called concurrently, even from different
          * Device instances.
          * 
@@ -114,9 +115,6 @@ namespace DAQCap {
          * @return A DataBlob containing the raw packet data together with
          * the number of packets in the blob and any warnings or errors that
          * occurred.
-         * 
-         * @throws timeout_exception if the timeout is reached before data
-         * is available.
          * 
          * @throws std::runtime_error if an error occurs while fetching data.
          */

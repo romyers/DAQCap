@@ -92,19 +92,7 @@ int main(int argc, char **argv) {
     ///////////////////////////////////////////////////////////////////////////
 
     // Check for the device specified by the user, if applicable
-    Device *device;
-    try {
-
-        device = Device::getDevice(args.deviceName);
-
-    } catch(const std::exception &e) {
-
-        cerr << e.what() << endl;
-        cout << "Exiting..." << endl;
-
-        return 1;
-
-    }
+    Device *device = Device::getDevice(args.deviceName);
 
     // If we don't have a device yet, prompt the user for one
     if(!device) {
@@ -116,25 +104,14 @@ int main(int argc, char **argv) {
 
         }
 
-        vector<Device*> devices;
-
-        try {
-
-            devices = Device::getAllDevices();
-
-        } catch(const std::exception &e) {
-
-            cerr << e.what() << endl;
-            cout << "Exiting..." << endl;
-
-            return 1;
-
-        }
+        vector<Device*> devices = Device::getAllDevices();
 
         if(devices.empty()) {
 
             cout << "No network devices found. Check your permissions."
-                      << endl;
+                 << endl;
+
+            return 1;
 
         }
 
@@ -158,16 +135,12 @@ int main(int argc, char **argv) {
     // Initialize a SessionHandler for the selected device
     ///////////////////////////////////////////////////////////////////////////
 
-    try {
+    device->open();
+    if(!device->is_open()) {
 
-        // Open a capture session
-        device->open();
-
-    } catch(const std::exception &e) {
-
-        cerr << e.what() << endl;
+        cerr << "Failed to open device: " << device->getName() << endl;
         cout << "Aborted run!" << endl;
-
+        
         return 1;
 
     }
@@ -235,12 +208,6 @@ int main(int argc, char **argv) {
         try {
 
             blob = device->fetchData(std::chrono::minutes(1));
-
-        } catch(const DAQCap::timeout_exception &t) {
-
-            cerr << "\rTimed out while waiting for packets." << endl;
-
-            continue;
 
         } catch(const std::exception &e) {
 

@@ -12,14 +12,14 @@ const int PRELOAD = 14;
 const int POSTLOAD = 4;
 const int WORD_SIZE = 5;
 
-TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
+TEST_CASE("PacketProcessor::blobify()", "[PacketProcessor]") {
 
     PacketProcessor processor;
     vector<Packet> packets;
 
-    SECTION("process() returns empty if no packets are provided") {
+    SECTION("blobify() returns empty if no packets are provided") {
 
-        DataBlob blob = processor.process(packets);
+        DataBlob blob = processor.blobify(packets);
         packets.clear();
 
         REQUIRE(blob.packetCount() == 0);
@@ -28,13 +28,13 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
 
     }
 
-    SECTION("process() succeeds with empty packets") {
+    SECTION("blobify() succeeds with empty packets") {
 
         std::vector<uint8_t> empty(PRELOAD + POSTLOAD, 0);
 
         packets.emplace_back(empty.data(), empty.size());
 
-        DataBlob blob = processor.process(packets);
+        DataBlob blob = processor.blobify(packets);
         packets.clear();
 
         REQUIRE(blob.packetCount() == 1);
@@ -43,7 +43,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
 
     }
 
-    SECTION("process() succeeds for normal case") {
+    SECTION("blobify() succeeds for normal case") {
 
         // Here we just generate a bunch of unique data and check every byte
         // in the blob
@@ -59,7 +59,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
         packets.emplace_back(data.data(), data.size());
         packets.emplace_back(data2.data(), data2.size());
 
-        DataBlob blob = processor.process(packets);
+        DataBlob blob = processor.blobify(packets);
         packets.clear();
 
         REQUIRE(blob.packetCount() == 2);
@@ -73,7 +73,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
 
     }
 
-    SECTION("process() succeeds with partial words") {
+    SECTION("blobify() succeeds with partial words") {
 
         int FIRST_VAL  = 1;
         int SECOND_VAL = 2;
@@ -98,7 +98,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
         packets.emplace_back(data.data(), data.size());
         packets.emplace_back(data2.data(), data2.size());
 
-        DataBlob blob = processor.process(packets);
+        DataBlob blob = processor.blobify(packets);
         packets.clear();
 
         REQUIRE(blob.packetCount() == 2);
@@ -121,7 +121,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
         // Right side of packet boundary is correct
         REQUIRE(blob.data()[FIRST_SIZE] == SECOND_VAL);
 
-        // Now let's make sure partial words across process calls are handled
+        // Now let's make sure partial words across blobify calls are handled
         // properly.
         // We'll make a packet that finishes the word from the last packet
         vector<uint8_t> data3(
@@ -131,7 +131,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
 
         packets.emplace_back(data3.data(), data3.size());
 
-        blob = processor.process(packets);
+        blob = processor.blobify(packets);
         packets.clear();
 
         // Check the packet count
@@ -168,7 +168,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
             packets.emplace_back(data2.data(), data2.size());
             packets.emplace_back(data3.data(), data3.size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.packetCount() == 3);
@@ -186,7 +186,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
             packets.emplace_back(data2.data(), data2.size());
             packets.emplace_back(data3.data(), data3.size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.warnings().size() == 1);
@@ -206,14 +206,14 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
             packets.emplace_back(data .data(), data .size());
             packets.emplace_back(data2.data(), data2.size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.warnings().empty());
 
             packets.emplace_back(data3.data(), data3.size());
 
-            blob = processor.process(packets);
+            blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.warnings().size() == 1);
@@ -232,7 +232,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
 
             packets.emplace_back(data.data(), data.size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.warnings().empty());
@@ -240,7 +240,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
             packets.emplace_back(data2.data(), data2.size());
             packets.emplace_back(data3.data(), data3.size());
 
-            blob = processor.process(packets);
+            blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.warnings().size() == 2);
@@ -263,7 +263,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
             packets.emplace_back(data .data(), data .size());
             packets.emplace_back(data2.data(), data2.size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.warnings().size() == 1);
@@ -282,7 +282,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
             packets.emplace_back(data .data(), data .size());
             packets.emplace_back(data2.data(), data2.size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.warnings().size() == 1);
@@ -301,7 +301,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
             packets.emplace_back(data .data(), data .size());
             packets.emplace_back(data2.data(), data2.size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.warnings().empty());
@@ -315,12 +315,12 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
 
             packets.emplace_back(data .data(), data .size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             packets.emplace_back(data2.data(), data2.size());
 
-            blob = processor.process(packets);
+            blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.warnings().empty());
@@ -337,7 +337,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
             packets.emplace_back(data .data(), data .size());
             packets.emplace_back(data2.data(), data2.size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.warnings().empty());
@@ -360,7 +360,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
 
             packets.emplace_back(data.data(), data.size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.packetCount() == 1);
@@ -381,7 +381,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
             packets.emplace_back(data .data(), data .size());
             packets.emplace_back(data2.data(), data2.size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.packetCount() == 2);
@@ -401,7 +401,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
 
             packets.emplace_back(data.data(), data.size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.packetCount() == 1);
@@ -409,7 +409,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
 
             packets.emplace_back(data2.data(), data2.size());
 
-            blob = processor.process(packets);
+            blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.packetCount() == 1);
@@ -437,7 +437,7 @@ TEST_CASE("PacketProcessor::process()", "[PacketProcessor]") {
 
             packets.emplace_back(data.data(), data.size());
 
-            DataBlob blob = processor.process(packets);
+            DataBlob blob = processor.blobify(packets);
             packets.clear();
 
             REQUIRE(blob.packetCount() == 1);
