@@ -9,7 +9,7 @@ using std::vector;
 PacketProcessor::PacketProcessor()
     : lastPacket(nullptr) {}
 
-DataBlob PacketProcessor::process(const vector<Packet> &packets) {
+DataBlob PacketProcessor::blobify(const vector<Packet> &packets) {
 
     DataBlob blob;
 

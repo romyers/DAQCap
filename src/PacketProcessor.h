@@ -30,13 +30,14 @@ namespace DAQCap {
         // TODO: What if we take an iterator range of packets instead of a
         //       vector?
         /**
-         * @brief Processes a vector of packets.
+         * @brief Unpacks a vector of packets into a blob, removing idle
+         * words and conducting missing packet checks.
          * 
-         * @param packets The packets to process.
+         * @param packets The packets to blobify.
          * 
          * @return A blob containing the processed data.
          */
-        DataBlob process(const std::vector<Packet> &packet);
+        DataBlob blobify(const std::vector<Packet> &packet);
 
         /**
          * @brief Resets the packet processor.

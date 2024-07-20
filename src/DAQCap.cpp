@@ -56,6 +56,10 @@ void listen_callback(
 
 }
 
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
 class PCapDevice final : public Device {
 
 public:
@@ -67,6 +71,7 @@ public:
     virtual std::string getDescription() const override;
 
     virtual void open() override;
+    virtual bool is_open() const override;
     virtual void close() override;
 
     virtual void interrupt() override;
@@ -108,6 +113,8 @@ string PCapDevice::getDescription() const {
 
 vector<Device*> Device::getAllDevices() {
 
+    vector<Device*> devices;
+
     ///////////////////////////////////////////////////////////////////////////
     // Get the devices from pcap
     ///////////////////////////////////////////////////////////////////////////
@@ -122,23 +129,19 @@ vector<Device*> Device::getAllDevices() {
         if(deviceHandle) pcap_freealldevs(deviceHandle);
         deviceHandle = nullptr;
 
-        throw std::runtime_error(
-            string("Error in pcap_findalldevs: ") + errorBuffer
-        );
+        return devices;
 
     }
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Find/create the devices in the cache and return pointers
-    ///////////////////////////////////////////////////////////////////////////
-
-    vector<Device*> devices;
 
     if(deviceHandle == nullptr) {
 
         return devices;
 
     }
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Find/create the devices in the cache and return pointers
+    ///////////////////////////////////////////////////////////////////////////
 
     for(pcap_if_t* d = deviceHandle; d != nullptr; d = d->next) {
 
@@ -200,10 +203,7 @@ void PCapDevice::open() {
 
         handler = nullptr;
 
-        throw std::runtime_error(
-            string("Could not open device ") 
-                + getName() + " : " + errorBuffer
-        );
+        return;
 
     }
 
@@ -218,25 +218,22 @@ void PCapDevice::open() {
     // as they are received. With immediate_mode off, packets are buffered 
     // until the buffer is full or a timeout occurs.
     pcap_set_immediate_mode(handler, 1);
-    // pcap_set_timeout(handler, 10000);   // This does not work on every OS
-    // pcap_set_buffer_size(handler, 100); // How many bytes to buffer before
-    //                                     // delivering packets (not used in
-    //                                     // immediate mode)
 
-    // TODO: With immediate_mode, is there really a reason to use pcap_dispatch
+    pcap_set_timeout(handler, 10000);   // This does not work on every OS
+    pcap_set_buffer_size(handler, 100); // How many bytes to buffer before
+                                        // delivering packets (not used in
+                                        // immediate mode)
+
+    // TODO: In immediate_mode, is there really a reason to use pcap_dispatch
     //       instead of just getting packets one at a time?
 
     int ret = pcap_activate(handler);
     if(ret < 0) {
 
-        throw std::runtime_error(
-            string("Could not activate device ") 
-                + getName() + " : " + pcap_geterr(handler)
-                + ".\nCheck permissions."
-        );
-
-        pcap_close(handler);
+        if(handler) pcap_close(handler);
         handler = nullptr;
+
+        return;
 
     }
 
@@ -250,9 +247,7 @@ void PCapDevice::open() {
         if(handler) pcap_close(handler);
         handler = nullptr;
 
-        throw std::runtime_error(
-            "Unable to compile the packet filter. Check the syntax!"
-        );
+        return;
 
     }
 
@@ -262,9 +257,7 @@ void PCapDevice::open() {
         if(handler) pcap_close(handler);
         handler = nullptr;
 
-        throw std::runtime_error(
-            "Filter address error. Cannot apply filter!"
-        );
+        return;
 
     }
 
@@ -274,6 +267,15 @@ void PCapDevice::open() {
     // filter program for a pcap structure by a call to
     // pcap_setfilter(3PCAP).
     pcap_freecode(&fcode);
+
+    // TODO: Idea -- Start buffering packets immediately when open() is called,
+    //       and let the fetch function just read out the buffer.
+
+}
+
+bool PCapDevice::is_open() const {
+
+    return handler != nullptr;
 
 }
 
@@ -328,17 +330,17 @@ DataBlob PCapDevice::fetchData(
     int packetsToRead
 ) {
 
+    DataBlob blob;
+
     // TODO: Timeout logic for versions that can't interrupt
 
     if(!handler) {
 
-        throw std::logic_error(
-            "Data cannot be fetched without an open session."
+        throw std::runtime_error(
+            "The device is not open."
         );
 
     }
-
-    DataBlob blob;
 
     ///////////////////////////////////////////////////////////////////////////
     // Run a thread that listens for packets
@@ -359,7 +361,7 @@ DataBlob PCapDevice::fetchData(
     );
 
     ///////////////////////////////////////////////////////////////////////////
-    // Throw if we have to wait too long for the thread to complete
+    // Interrupt if we have to wait too long
     ///////////////////////////////////////////////////////////////////////////
 
     if(
@@ -372,22 +374,15 @@ DataBlob PCapDevice::fetchData(
         // This should force the netManager to return early
         interrupt();
 
-        throw timeout_exception(
-            "DAQCap::Device::fetchData() timed out"
-        );
-
-        // NOTE: Future will block until completion when it goes out of scope,
-        //       so we don't need to explicitly wait for it
-
     }
 
     ///////////////////////////////////////////////////////////////////////////
     // Get the packet data and return it as a processed blob
     ///////////////////////////////////////////////////////////////////////////
 
-    int ret = future.get();
-
     vector<Packet> packets;
+
+    int ret = future.get();
 
     // Swap g_packetBuffer with the local vector, clearing g_packetBuffer in
     // the process
@@ -410,7 +405,7 @@ DataBlob PCapDevice::fetchData(
     } 
     
     // TODO: Is this faster with std::move?
-    return packetProcessor.process(packets);
+    return packetProcessor.blobify(packets);
 
 }
 
