@@ -6,7 +6,6 @@
 #include <pcap.h>
 
 #include <stdexcept>
-#include <future>
 #include <map>
 
 using std::string;
@@ -14,6 +13,34 @@ using std::vector;
 using std::map;
 
 using namespace DAQCap;
+
+// Let's make a preprocessor macro to tell us if interrupts are supported.
+// These OSes allow pcap_breakloop to wake up the pcap_dispatch thread
+#if defined(__linux__) || defined(_WIN32) || defined(_WIN64)
+
+    // I *think* this was first introduced in 1.10.0, so it should work
+    // as a way to check that we are running 1.10.0 or later.
+    #ifdef PCAP_CHAR_ENC_LOCAL
+
+        #define INTERRUPT_SUPPORTED
+
+    #endif
+
+#endif
+
+bool DAQCap::interrupt_supported() {
+
+    #ifdef INTERRUPT_SUPPORTED
+
+        return true;
+
+    #else
+
+        return false;
+
+    #endif
+
+}
 
 class PCapDevice;
 
@@ -77,7 +104,7 @@ public:
     virtual void interrupt() override;
 
     virtual DataBlob fetchData(
-        std::chrono::milliseconds timeout = FOREVER,
+        std::chrono::seconds timeout = FOREVER,
         int packetsToRead = ALL_PACKETS
     ) override;
 
@@ -301,21 +328,14 @@ void PCapDevice::interrupt() {
     //       solution in these cases.
 
     // These OSes allow pcap_breakloop to wake up the pcap_dispatch thread
-    #if defined(__linux__) || defined(_WIN32) || defined(_WIN64)
+    if(interrupt_supported()) {
 
-        // I *think* this was first introduced in 1.10.0, so it should work
-        // as a way to check that we are running 1.10.0 or later.
-        #ifdef PCAP_CHAR_ENC_LOCAL
+        pcap_breakloop(handler);
+        return;
 
-            pcap_breakloop(handler);
-            return;
-
-        #endif
-
-    #endif
+    }
 
     // If we get this far, then we can't interrupt
-
 
     // TODO: Document that we can't interrupt on this platform or
     //       find another way to do it. We could consider e.g.
@@ -326,9 +346,13 @@ void PCapDevice::interrupt() {
 }
 
 DataBlob PCapDevice::fetchData(
-    std::chrono::milliseconds timeout,
+    std::chrono::seconds timeout,
     int packetsToRead
 ) {
+
+    // TODO: It would be great if fetchData could abandon the dispatch thread
+    //       and return on interrupt. We can make sure the dispatch thread will
+    //       end *eventually* and just detach it.
 
     DataBlob blob;
 
@@ -343,49 +367,79 @@ DataBlob PCapDevice::fetchData(
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    // Run a thread that listens for packets
+    // Read the data with timeout logic
     ///////////////////////////////////////////////////////////////////////////
 
-    auto future = std::async(
-        std::launch::async, 
-        [this, packetsToRead]() {
+    // An earlier implementation waited for an std::future produced by
+    // std::async. However, this implementation only worked when interrupts
+    // were supported. The following OS-specific
+    // implementations will work for older versions of libpcap.
 
-            return pcap_dispatch(
+    int ret = -1;
+    #if defined(__linux__) || defined(__APPLE__)
+
+        // TODO: Verify that this works on MacOS
+
+        fd_set rfds;        // file descriptor sets for "select" function
+                            // (it's a bit arrray)
+        struct timeval tv;  // strcuture represents elapsed time (declared
+                            // in sys/time.h)
+
+        // Get a file descriptor for the pcap device
+        int fd = pcap_get_selectable_fd(handler); 
+
+        FD_ZERO(&rfds); //re-clears(empty) file descriptor set 
+        FD_SET(fd,&rfds); //rebuild file descriptor set
+        
+        tv.tv_sec=timeout.count();
+        tv.tv_usec=0;
+    
+        // TODO: Linux docs say that poll() is preferred to select() for
+        //       modern applications
+        // Blocks the calling process until there is activity on the file
+        // descriptor or the timeout period has expired
+        int sel = select(fd, &rfds, NULL, NULL, &tv); 
+
+        if(sel > 0) {
+
+            ret = pcap_dispatch(
                 handler, 
                 packetsToRead, 
                 listen_callback,
                 NULL
             );
 
+        } else if(sel == 0) {
+
+            // We timed out
+            ret = -2;
+
+        } else {
+
+            // select() failed
+            ret = -1;
+
         }
-    );
+
+
+    #elif defined(_WIN32) || defined(_WIN64)
+
+        // TODO: Windows support
+
+    #else
+
+        // There's nothing we can do, so just skip the timeout
+        // entirely
+
+    #endif
 
     ///////////////////////////////////////////////////////////////////////////
-    // Interrupt if we have to wait too long
+    // Get data from global buffer
     ///////////////////////////////////////////////////////////////////////////
-
-    if(
-        timeout != FOREVER &&
-        future.wait_for(
-            timeout
-        ) == std::future_status::timeout
-    ) {
-
-        // This should force the netManager to return early
-        interrupt();
-
-    }
-
-    ///////////////////////////////////////////////////////////////////////////
-    // Get the packet data and return it as a processed blob
-    ///////////////////////////////////////////////////////////////////////////
-
-    vector<Packet> packets;
-
-    int ret = future.get();
 
     // Swap g_packetBuffer with the local vector, clearing g_packetBuffer in
     // the process
+    vector<Packet> packets;
     std::swap(packets, g_packetBuffer);
 
     if(ret == -1) { // An error occurred
@@ -403,6 +457,10 @@ DataBlob PCapDevice::fetchData(
         //       worry about whether it needs special handling.
 
     } 
+
+    ///////////////////////////////////////////////////////////////////////////
+    // Blobify and return data
+    ///////////////////////////////////////////////////////////////////////////
     
     // TODO: Is this faster with std::move?
     return packetProcessor.blobify(packets);

@@ -207,7 +207,7 @@ int main(int argc, char **argv) {
 
         try {
 
-            blob = device->fetchData(std::chrono::minutes(1));
+            blob = device->fetchData(std::chrono::seconds(1));
 
         } catch(const std::exception &e) {
 

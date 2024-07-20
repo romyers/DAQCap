@@ -25,7 +25,15 @@
 namespace DAQCap {
 
     const int ALL_PACKETS = -1;
-    const std::chrono::milliseconds FOREVER(-1);
+    const std::chrono::seconds FOREVER(-1);
+
+    /**
+     * @brief Checks if Device::interrupt() calls are supported.
+     * 
+     * Device::interrupt() calls are only supported for Linux and Windows and
+     * for libpcap version 1.10.0 or later.
+     */
+    bool interrupt_supported();
 
     /**
      * @brief Represents a network device.
@@ -88,7 +96,8 @@ namespace DAQCap {
          * 
          * @note This function is supported for Linux and Windows and for
          * libpcap versions 1.10.0 and later. For other platforms or versions,
-         * this function will have no effect.
+         * this function will have no effect, and it will be impossible
+         * to unblock fetchData() calls until data is received.
          */
         virtual void interrupt() = 0;
 
@@ -100,7 +109,7 @@ namespace DAQCap {
          * a DataBlob.
          * 
          * If the timeout is reached, aborts the data read and returns
-         * whatever (if any) data was read.
+         * an empty blob.
          * 
          * fetchData() may not be called concurrently, even from different
          * Device instances.
@@ -117,9 +126,13 @@ namespace DAQCap {
          * occurred.
          * 
          * @throws std::runtime_error if an error occurs while fetching data.
+         * 
+         * @note Timeouts are currently tested and supported on Linux only.
+         * They may work on MacOS, though this is untested. Timeouts will
+         * have no effect on windows.
          */
         virtual DataBlob fetchData(
-            std::chrono::milliseconds timeout = FOREVER,
+            std::chrono::seconds timeout = FOREVER,
             int packetsToRead = ALL_PACKETS
         ) = 0;
 
