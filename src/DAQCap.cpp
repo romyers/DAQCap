@@ -375,63 +375,71 @@ DataBlob PCapDevice::fetchData(
     // were supported. The following OS-specific
     // implementations will work for older versions of libpcap.
 
-    int ret = -1;
-    #if defined(__linux__) || defined(__APPLE__)
+    // If the timeout logic leaves sel > 0, then we can call pcap_dispatch().
+    // Otherwise, something went wrong or we timed out.
+    int sel = 1;
+    if(timeout != FOREVER) {
 
-        // TODO: Verify that this works on MacOS
+        #if defined(__linux__) || defined(__APPLE__)
 
-        fd_set rfds;        // file descriptor sets for "select" function
-                            // (it's a bit arrray)
-        struct timeval tv;  // strcuture represents elapsed time (declared
-                            // in sys/time.h)
+            // TODO: Verify that this works on MacOS
 
-        // Get a file descriptor for the pcap device
-        int fd = pcap_get_selectable_fd(handler); 
+            fd_set rfds;        // file descriptor sets for "select" function
+                                // (it's a bit arrray)
+            struct timeval tv;  // strcuture represents elapsed time (declared
+                                // in sys/time.h)
 
-        FD_ZERO(&rfds); //re-clears(empty) file descriptor set 
-        FD_SET(fd,&rfds); //rebuild file descriptor set
+            // Get a file descriptor for the pcap device
+            int fd = pcap_get_selectable_fd(handler); 
+
+            FD_ZERO(&rfds); //re-clears(empty) file descriptor set 
+            FD_SET(fd,&rfds); //rebuild file descriptor set
+            
+            tv.tv_sec=timeout.count();
+            tv.tv_usec=0;
         
-        tv.tv_sec=timeout.count();
-        tv.tv_usec=0;
-    
-        // TODO: Linux docs say that poll() is preferred to select() for
-        //       modern applications
-        // Blocks the calling process until there is activity on the file
-        // descriptor or the timeout period has expired
-        int sel = select(fd, &rfds, NULL, NULL, &tv); 
-
-        if(sel > 0) {
-
-            ret = pcap_dispatch(
-                handler, 
-                packetsToRead, 
-                listen_callback,
-                NULL
-            );
-
-        } else if(sel == 0) {
-
-            // We timed out
-            ret = -2;
-
-        } else {
-
-            // select() failed
-            ret = -1;
-
-        }
+            // TODO: Linux docs say that poll() is preferred to select() for
+            //       modern applications
+            // Blocks the calling process until there is activity on the file
+            // descriptor or the timeout period has expired
+            sel = select(fd, &rfds, NULL, NULL, &tv); 
 
 
-    #elif defined(_WIN32) || defined(_WIN64)
+        #elif defined(_WIN32) || defined(_WIN64)
 
-        // TODO: Windows support
+            // TODO: Windows support
 
-    #else
+        #else
 
-        // There's nothing we can do, so just skip the timeout
-        // entirely
+            // There's nothing we can do, so just skip the timeout
+            // entirely
 
-    #endif
+        #endif
+
+    }
+
+    // Now we're done with the timeout logic, so we can get the data
+    int ret = -1;
+    if(sel > 0) {
+
+        ret = pcap_dispatch(
+            handler, 
+            packetsToRead, 
+            listen_callback,
+            NULL
+        );
+
+    } else if(sel == 0) {
+
+        // We timed out
+        ret = -2;
+
+    } else {
+
+        // select() failed
+        ret = -1;
+
+    }
 
     ///////////////////////////////////////////////////////////////////////////
     // Get data from global buffer
