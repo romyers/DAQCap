@@ -22,10 +22,10 @@ If libpcap is not present, it will be installed during the build process.
 Installing libpcap requires:
   - [Flex](https://github.com/westes/flex) version 2.5.31 or later.
   - One of:
-      - [Bison](https://ftp.gnu.org/gnu/bison/)
-      - [Berkely YACC](https://ftp.gnu.org/gnu/bison/)
-    
-    or another compatible version of YACC.
+	  - [Bison](https://ftp.gnu.org/gnu/bison/)
+	  - [Berkely YACC](https://ftp.gnu.org/gnu/bison/)
+	
+	or another compatible version of YACC.
 
 Once either libpcap or its prerequisites are included, download and build the 
 DAQCap library either 
@@ -66,9 +66,9 @@ module:
 ```CMake
 include(FetchContent)
 FetchContent_Declare(
-    DAQCap
-    GIT_REPOSITORY https://github.com/romyers/DAQCap
-    GIT_TAG v1.0 # Or later version
+	DAQCap
+	GIT_REPOSITORY https://github.com/romyers/DAQCap
+	GIT_TAG v1.0 # Or later version
 )
 FetchContent_MakeAvailable(DAQCap)
 ```
@@ -125,87 +125,87 @@ library:
 
 int main() {
 
-    // The first step is to create a session handler. Library functionality
-    // will be accessed through this handler.
-    DAQCap::SessionHandler handler;
+	// The first step is to create a session handler. Library functionality
+	// will be accessed through this handler.
+	DAQCap::SessionHandler handler;
 
-    // Next we'll get a list of available network devices. These pointers are
-    // backed by internally-managed device instances.
-    std::vector<Device*> devices = Device::getAllDevices();
+	// Next we'll get a list of available network devices. These pointers are
+	// backed by internally-managed device instances.
+	std::vector<Device*> devices = Device::getAllDevices();
 
-    // Device::getAllDevices() will return an empty vector if it could not
-    // retrieve the devices for any reason.
-    if(devices.empty()) {
+	// Device::getAllDevices() will return an empty vector if it could not
+	// retrieve the devices for any reason.
+	if(devices.empty()) {
 
-        return 1;
+		return 1;
 
-    }
+	}
 
-    // Pick a device. We could prompt the user to select a device, or we could
-    // accept a device name and use Device::getDevice([device name])
-    // to look for and retrieve the associated device.
-    Device *d = devices[0];
+	// Pick a device. We could prompt the user to select a device, or we could
+	// accept a device name and use Device::getDevice([device name])
+	// to look for and retrieve the associated device.
+	Device *d = devices[0];
 
-    // Next, we'll start a capture session on the selected device.
-    d->open();
-    
-    // This part of the interface works like ifstreams. If d->open() fails,
-    // the device simply will not open.
-    if(!d->is_open()) {
+	// Next, we'll start a capture session on the selected device.
+	d->open();
+	
+	// This part of the interface works like ifstreams. If d->open() fails,
+	// the device simply will not open.
+	if(!d->is_open()) {
 
-        return 1;
+		return 1;
 
-    }
+	}
 
-    // We're now ready to read the data. Loop until we've read some number
-    // of packets. Here, we'll store the packet data in a buffer, but we could
-    // e.g. write to a file or feed the data to a decoding library instead.
-    int packets = 0;
-    std::vector<uint8_t> dataBuffer;
-    while(packets < 10000) {
+	// We're now ready to read the data. Loop until we've read some number
+	// of packets. Here, we'll store the packet data in a buffer, but we could
+	// e.g. write to a file or feed the data to a decoding library instead.
+	int packets = 0;
+	std::vector<uint8_t> dataBuffer;
+	while(packets < 10000) {
 
-        // This will block until packet data is received, then return
-        // the data as a DAQData::DataBlob.
-        DAQCap::DataBlob data;
-        try {
-            data = d->fetchData();
-        } catch(...) { continue; }
+		// This will block until packet data is received, then return
+		// the data as a DAQData::DataBlob.
+		DAQCap::DataBlob data;
+		try {
+			data = d->fetchData();
+		} catch(...) { continue; }
 
-        // Another version of this call, this time specifying a timeout
-        // and a maximum number of packets to read. This will try to read
-        // at most 50 packets, and return immediately
-        // if it fails to complete the read within 10 seconds.
-        /*
-        try {
+		// Another version of this call, this time specifying a timeout
+		// and a maximum number of packets to read. This will try to read
+		// at most 50 packets, and return immediately
+		// if it fails to complete the read within 10 seconds.
+		/*
+		try {
 
-            DAQCap::DataBlob data = d->fetchData(
-                std::chrono::seconds(10),
-                50
-            );
+			DAQCap::DataBlob data = d->fetchData(
+				std::chrono::seconds(10),
+				50
+			);
 
-         catch(...) { continue; }
-        */
+		 catch(...) { continue; }
+		*/
 
-        // Let's report any issues that occurred during the read.
-        for(std::string warning : data.warnings()) {
+		// Let's report any issues that occurred during the read.
+		for(std::string warning : data.warnings()) {
 
-                std::cerr << warning << std::endl;
+				std::cerr << warning << std::endl;
 
-        }
+		}
 
-        // Now we'll buffer the data using DataBlob's iterators
-        dataBuffer.insert(
-            dataBuffer.end(),
-            data.cbegin(),
-            data.cend()
-        );
-        
-        // And record the packet count
-        packets += data.packetCount();
+		// Now we'll buffer the data using DataBlob's iterators
+		dataBuffer.insert(
+			dataBuffer.end(),
+			data.cbegin(),
+			data.cend()
+		);
+		
+		// And record the packet count
+		packets += data.packetCount();
 
-    }
+	}
 
-    return 0;
+	return 0;
 
 }
 ```
